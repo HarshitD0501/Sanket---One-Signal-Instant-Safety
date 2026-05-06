@@ -1,0 +1,257 @@
+/* ═══════════════════════════════════════════════════════════
+   SANKET — Design System
+   Theme: Cyberpunk / Mission Control
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── CSS Variables ── */
+:root {
+  --bg-void: #000000;
+  --bg-primary: #050508;
+  --bg-elevated: #0a0e1a;
+  --bg-surface: #111827;
+  --bg-subtle: #1a2236;
+  --glass-bg: rgba(255,255,255,0.03);
+  --glass-border: rgba(255,255,255,0.08);
+  --glass-hover: rgba(255,255,255,0.06);
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-ghost: #334155;
+  --sos-red: #ff3b5c;
+  --sos-red-glow: rgba(255,59,92,0.4);
+  --safe-green: #00d4aa;
+  --safe-green-glow: rgba(0,212,170,0.4);
+  --accent: #7c5cfc;
+  --accent-glow: rgba(124,92,252,0.3);
+  --warning: #f59e0b;
+  --font-display: 'Chakra Petch', sans-serif;
+  --font-heading: 'Space Grotesk', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+  --transition: 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* ── Reset ── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;-webkit-font-smoothing:antialiased}
+body{font-family:var(--font-body);background:var(--bg-primary);color:var(--text-primary);min-height:100vh;overflow-x:hidden}
+a{text-decoration:none;color:inherit}
+button{cursor:pointer;border:none;background:none;font-family:inherit;color:inherit}
+input,select,textarea{font-family:inherit;color:inherit;background:transparent}
+ul,ol{list-style:none}
+img{max-width:100%;display:block}
+
+/* ── Tech Grid Background ── */
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(255,255,255,0.015) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.015) 1px,transparent 1px);background-size:60px 60px;pointer-events:none;z-index:0}
+body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(124,92,252,0.08) 0%,transparent 60%);pointer-events:none;z-index:0}
+#root{position:relative;z-index:1}
+
+/* ── Glass Card ── */
+.glass{background:var(--glass-bg);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--glass-border);border-radius:var(--radius-lg)}
+.glass:hover{background:var(--glass-hover);border-color:rgba(255,255,255,0.12)}
+.glass-elevated{background:rgba(255,255,255,0.05);backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.1);box-shadow:0 8px 32px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.05);border-radius:var(--radius-lg)}
+
+/* ── Layout ── */
+.container{max-width:1200px;margin:0 auto;padding:0 clamp(1rem,5vw,2rem)}
+.page{min-height:100vh;padding-top:5rem;padding-bottom:2rem}
+.page-header{margin-bottom:2rem}
+.page-title{font-family:var(--font-display);font-size:clamp(1.5rem,4vw,2.5rem);font-weight:700;letter-spacing:-0.02em;text-transform:uppercase}
+.page-subtitle{font-family:var(--font-mono);font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-muted);margin-bottom:0.5rem}
+
+/* ── Navbar ── */
+.navbar{position:fixed;top:0;left:0;right:0;z-index:100;padding:1rem 0}
+.navbar-inner{display:flex;align-items:center;justify-content:space-between;padding:0.75rem 1.5rem;border-radius:var(--radius-full);background:rgba(10,14,26,0.85);backdrop-filter:blur(20px);border:1px solid var(--glass-border)}
+.navbar-brand{display:flex;align-items:center;gap:0.75rem}
+.navbar-logo{font-family:var(--font-display);font-size:1.25rem;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;background:linear-gradient(135deg,var(--sos-red),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.navbar-tagline{font-family:var(--font-mono);font-size:0.6rem;text-transform:uppercase;letter-spacing:0.15em;color:var(--text-muted);display:none}
+@media(min-width:640px){.navbar-tagline{display:block}}
+.navbar-links{display:flex;align-items:center;gap:0.25rem}
+.navbar-link{padding:0.5rem 1rem;border-radius:var(--radius-full);font-family:var(--font-heading);font-size:0.85rem;font-weight:500;color:var(--text-secondary);transition:var(--transition)}
+.navbar-link:hover,.navbar-link.active{color:var(--text-primary);background:rgba(255,255,255,0.06)}
+.navbar-link.active{border:1px solid var(--glass-border)}
+.navbar-user{display:flex;align-items:center;gap:0.75rem}
+.navbar-status{width:8px;height:8px;border-radius:50%}
+.navbar-status.safe{background:var(--safe-green);box-shadow:0 0 8px var(--safe-green-glow)}
+.navbar-status.active{background:var(--sos-red);box-shadow:0 0 8px var(--sos-red-glow);animation:pulse-glow 1s infinite}
+.btn-logout{font-family:var(--font-mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-muted);padding:0.4rem 0.8rem;border-radius:var(--radius-full);border:1px solid var(--glass-border);transition:var(--transition)}
+.btn-logout:hover{color:var(--sos-red);border-color:var(--sos-red)}
+
+/* ── SOS Button ── */
+.sos-container{display:flex;flex-direction:column;align-items:center;gap:2rem;padding:3rem 0}
+.sos-btn-wrapper{position:relative;display:flex;align-items:center;justify-content:center}
+.sos-btn-ring{position:absolute;width:220px;height:220px;border-radius:50%;border:2px solid rgba(255,59,92,0.15);animation:sos-ring-pulse 3s ease-in-out infinite}
+.sos-btn-ring:nth-child(2){width:260px;height:260px;animation-delay:0.5s;border-color:rgba(255,59,92,0.08)}
+.sos-btn-ring:nth-child(3){width:300px;height:300px;animation-delay:1s;border-color:rgba(255,59,92,0.04)}
+.sos-btn{width:180px;height:180px;border-radius:50%;background:linear-gradient(135deg,#ff3b5c,#cc2d48);color:#fff;font-family:var(--font-display);font-size:2.5rem;font-weight:800;letter-spacing:0.1em;display:flex;align-items:center;justify-content:center;cursor:pointer;border:3px solid rgba(255,255,255,0.1);box-shadow:0 0 40px var(--sos-red-glow),0 0 80px rgba(255,59,92,0.15),inset 0 -4px 12px rgba(0,0,0,0.3);transition:all 0.2s ease;position:relative;z-index:2}
+.sos-btn:hover{transform:scale(1.05);box-shadow:0 0 60px var(--sos-red-glow),0 0 120px rgba(255,59,92,0.2)}
+.sos-btn:active{transform:scale(0.95)}
+.sos-btn.active{background:linear-gradient(135deg,var(--safe-green),#00a885);box-shadow:0 0 40px var(--safe-green-glow),0 0 80px rgba(0,212,170,0.15)}
+.sos-label{font-family:var(--font-mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.15em;color:var(--text-muted)}
+
+/* ── Status Badge ── */
+.status-badge{display:inline-flex;align-items:center;gap:0.5rem;padding:0.4rem 1rem;border-radius:var(--radius-full);font-family:var(--font-mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em}
+.status-badge.safe{background:rgba(0,212,170,0.1);color:var(--safe-green);border:1px solid rgba(0,212,170,0.2)}
+.status-badge.danger{background:rgba(255,59,92,0.1);color:var(--sos-red);border:1px solid rgba(255,59,92,0.2);animation:pulse-border 2s infinite}
+.status-dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+
+/* ── Contact Cards ── */
+.contacts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem}
+.contact-card{padding:1.25rem;display:flex;align-items:center;gap:1rem;transition:var(--transition)}
+.contact-avatar{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--sos-red));display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:1.1rem;flex-shrink:0}
+.contact-info{flex:1;min-width:0}
+.contact-name{font-family:var(--font-heading);font-weight:600;font-size:0.95rem;margin-bottom:0.15rem}
+.contact-phone{font-family:var(--font-mono);font-size:0.75rem;color:var(--text-muted)}
+.contact-relation{font-size:0.7rem;color:var(--text-secondary);background:rgba(255,255,255,0.05);padding:0.15rem 0.5rem;border-radius:var(--radius-full);display:inline-block;margin-top:0.25rem}
+.contact-actions{display:flex;gap:0.5rem}
+.contact-action-btn{width:32px;height:32px;border-radius:50%;border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;font-size:0.85rem;transition:var(--transition)}
+.contact-action-btn:hover{background:rgba(255,255,255,0.08)}
+.contact-action-btn.delete:hover{color:var(--sos-red);border-color:var(--sos-red)}
+
+/* ── Toggle Switch ── */
+.toggle{position:relative;width:48px;height:26px;border-radius:var(--radius-full);background:var(--bg-surface);border:1px solid var(--glass-border);cursor:pointer;transition:var(--transition)}
+.toggle.on{background:rgba(0,212,170,0.2);border-color:var(--safe-green)}
+.toggle-knob{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:var(--text-secondary);transition:var(--transition)}
+.toggle.on .toggle-knob{transform:translateX(22px);background:var(--safe-green)}
+
+/* ── Shake Indicator ── */
+.shake-toggle{display:flex;align-items:center;gap:0.75rem;padding:0.75rem 1.25rem;border-radius:var(--radius-lg)}
+.shake-icon{font-size:1.25rem}
+.shake-label{font-family:var(--font-heading);font-size:0.85rem;font-weight:500}
+.shake-sublabel{font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em}
+
+/* ── Modal ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;z-index:200;padding:1rem}
+.modal{width:100%;max-width:480px;padding:2rem;border-radius:var(--radius-xl);background:var(--bg-elevated);border:1px solid var(--glass-border);box-shadow:0 24px 64px rgba(0,0,0,0.5)}
+.modal-title{font-family:var(--font-display);font-size:1.25rem;font-weight:700;margin-bottom:1.5rem;text-transform:uppercase;letter-spacing:0.03em}
+
+/* ── Forms ── */
+.form-group{margin-bottom:1.25rem}
+.form-label{display:block;font-family:var(--font-mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-muted);margin-bottom:0.5rem}
+.form-input{width:100%;padding:0.75rem 1rem;background:var(--bg-surface);border:1px solid var(--glass-border);border-radius:var(--radius-md);font-size:0.9rem;color:var(--text-primary);transition:var(--transition);outline:none}
+.form-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+.form-input::placeholder{color:var(--text-ghost)}
+.form-select{width:100%;padding:0.75rem 1rem;background:var(--bg-surface);border:1px solid var(--glass-border);border-radius:var(--radius-md);font-size:0.9rem;color:var(--text-primary);outline:none;appearance:none}
+
+/* ── Buttons ── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:0.5rem;padding:0.75rem 1.5rem;border-radius:var(--radius-md);font-family:var(--font-heading);font-size:0.875rem;font-weight:600;transition:var(--transition);border:none;cursor:pointer}
+.btn-primary{background:linear-gradient(135deg,var(--sos-red),#cc2d48);color:#fff;box-shadow:0 4px 16px var(--sos-red-glow)}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 24px var(--sos-red-glow)}
+.btn-secondary{background:var(--bg-surface);color:var(--text-primary);border:1px solid var(--glass-border)}
+.btn-secondary:hover{background:var(--bg-subtle);border-color:rgba(255,255,255,0.15)}
+.btn-safe{background:linear-gradient(135deg,var(--safe-green),#00a885);color:#000;font-weight:700;box-shadow:0 4px 16px var(--safe-green-glow)}
+.btn-safe:hover{transform:translateY(-1px);box-shadow:0 6px 24px var(--safe-green-glow)}
+.btn-ghost{color:var(--text-secondary);padding:0.5rem 1rem}
+.btn-ghost:hover{color:var(--text-primary);background:rgba(255,255,255,0.05)}
+.btn-block{width:100%}
+.btn-sm{padding:0.5rem 1rem;font-size:0.8rem}
+.btn-lg{padding:1rem 2rem;font-size:1rem}
+.btn:disabled{opacity:0.5;cursor:not-allowed;transform:none !important}
+
+/* ── SOS History ── */
+.history-list{display:flex;flex-direction:column;gap:0.75rem}
+.history-item{display:flex;align-items:center;gap:1rem;padding:1rem 1.25rem;transition:var(--transition)}
+.history-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.85rem;flex-shrink:0}
+.history-icon.resolved{background:rgba(0,212,170,0.1);color:var(--safe-green)}
+.history-icon.active{background:rgba(255,59,92,0.1);color:var(--sos-red)}
+.history-details{flex:1}
+.history-type{font-family:var(--font-heading);font-weight:600;font-size:0.85rem}
+.history-time{font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)}
+.history-status{font-family:var(--font-mono);font-size:0.65rem;text-transform:uppercase;letter-spacing:0.05em;padding:0.2rem 0.5rem;border-radius:var(--radius-full)}
+
+/* ── Map ── */
+.map-container{width:100%;height:calc(100vh - 5rem);border-radius:var(--radius-lg);overflow:hidden;border:1px solid var(--glass-border)}
+.map-overlay{position:absolute;top:1rem;left:1rem;z-index:10;display:flex;flex-direction:column;gap:0.5rem}
+.map-chip{display:inline-flex;align-items:center;gap:0.4rem;padding:0.4rem 0.75rem;border-radius:var(--radius-full);font-family:var(--font-mono);font-size:0.7rem;cursor:pointer;transition:var(--transition)}
+.map-chip.active{background:rgba(124,92,252,0.2);border-color:var(--accent)}
+.safe-zone-info{padding:1rem;max-width:250px}
+.safe-zone-name{font-family:var(--font-heading);font-weight:600;font-size:0.9rem;margin-bottom:0.25rem}
+.safe-zone-address{font-size:0.75rem;color:var(--text-muted);margin-bottom:0.5rem}
+.safe-zone-rating{font-family:var(--font-mono);font-size:0.7rem;color:var(--warning)}
+
+/* ── Tracking Page ── */
+.tracking-header{padding:1.5rem;border-bottom:1px solid var(--glass-border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem}
+.tracking-user{font-family:var(--font-display);font-size:1.5rem;font-weight:700;text-transform:uppercase}
+.tracking-meta{font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)}
+.tracking-live{display:flex;align-items:center;gap:0.5rem;font-family:var(--font-mono);font-size:0.75rem;color:var(--sos-red);text-transform:uppercase;letter-spacing:0.1em}
+.tracking-live-dot{width:8px;height:8px;border-radius:50%;background:var(--sos-red);animation:pulse-glow 1s infinite}
+.tracking-map{width:100%;height:calc(100vh - 12rem);border-radius:0 0 var(--radius-lg) var(--radius-lg)}
+
+/* ── Auth Pages ── */
+.auth-page{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:2rem}
+.auth-card{width:100%;max-width:420px;padding:2.5rem}
+.auth-header{text-align:center;margin-bottom:2rem}
+.auth-logo{font-family:var(--font-display);font-size:2rem;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;background:linear-gradient(135deg,var(--sos-red),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:0.5rem}
+.auth-tagline{font-family:var(--font-mono);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.15em;color:var(--text-muted)}
+.auth-footer{text-align:center;margin-top:1.5rem;font-size:0.85rem;color:var(--text-muted)}
+.auth-link{color:var(--accent);font-weight:600;transition:var(--transition)}
+.auth-link:hover{color:var(--sos-red)}
+
+/* ── Quick Contacts Row ── */
+.quick-contacts{display:flex;gap:0.75rem;flex-wrap:wrap;justify-content:center}
+.quick-contact{display:flex;flex-direction:column;align-items:center;gap:0.4rem}
+.quick-contact-avatar{width:40px;height:40px;border-radius:50%;background:var(--bg-surface);border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:600}
+.quick-contact-name{font-family:var(--font-mono);font-size:0.6rem;color:var(--text-muted);max-width:60px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── Empty State ── */
+.empty-state{text-align:center;padding:3rem 1rem}
+.empty-icon{font-size:3rem;margin-bottom:1rem;opacity:0.3}
+.empty-title{font-family:var(--font-heading);font-size:1.1rem;font-weight:600;margin-bottom:0.5rem}
+.empty-text{font-size:0.85rem;color:var(--text-muted);margin-bottom:1.5rem}
+
+/* ── Loading ── */
+.loader{width:40px;height:40px;border:3px solid var(--glass-border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:2rem auto}
+.skeleton{background:linear-gradient(90deg,var(--bg-surface) 25%,var(--bg-subtle) 50%,var(--bg-surface) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:var(--radius-md)}
+
+/* ── Animations ── */
+@keyframes pulse-glow{0%,100%{opacity:1}50%{opacity:0.5}}
+@keyframes pulse-border{0%,100%{border-color:rgba(255,59,92,0.2)}50%{border-color:rgba(255,59,92,0.5)}}
+@keyframes sos-ring-pulse{0%{transform:scale(1);opacity:0.6}50%{transform:scale(1.1);opacity:0.2}100%{transform:scale(1);opacity:0.6}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes shimmer{to{background-position:-200% 0}}
+@keyframes fade-up{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fade-in{from{opacity:0}to{opacity:1}}
+@keyframes scale-in{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
+@keyframes slide-right{from{opacity:0;transform:translateX(-20px)}to{opacity:1;transform:translateX(0)}}
+
+/* ── Utility ── */
+.animate-fade-up{animation:fade-up 0.6s ease-out both}
+.animate-fade-in{animation:fade-in 0.4s ease-out both}
+.animate-scale-in{animation:scale-in 0.4s ease-out both}
+.flex-center{display:flex;align-items:center;justify-content:center}
+.flex-between{display:flex;align-items:center;justify-content:space-between}
+.gap-sm{gap:0.5rem}
+.gap-md{gap:1rem}
+.gap-lg{gap:1.5rem}
+.text-red{color:var(--sos-red)}
+.text-green{color:var(--safe-green)}
+.text-muted{color:var(--text-muted)}
+.mt-1{margin-top:0.5rem}
+.mt-2{margin-top:1rem}
+.mb-1{margin-bottom:0.5rem}
+.mb-2{margin-bottom:1rem}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:var(--bg-primary)}
+::-webkit-scrollbar-thumb{background:var(--bg-subtle);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--text-ghost)}
+
+/* ── Responsive ── */
+@media(max-width:768px){
+  .navbar-link span{display:none}
+  .contacts-grid{grid-template-columns:1fr}
+  .sos-btn{width:150px;height:150px;font-size:2rem}
+  .sos-btn-ring{width:180px;height:180px}
+  .sos-btn-ring:nth-child(2){width:210px;height:210px}
+  .sos-btn-ring:nth-child(3){width:240px;height:240px}
+}
+
+/* ── Reduced Motion ── */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:0.01ms !important;transition-duration:0.01ms !important}
+}
