@@ -9,22 +9,22 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:5000',
         changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('error', () => {});
+          proxy.on('proxyReq', (_proxyReq, req) => {
+            if (!req.url) return;
+          });
+        },
       },
       '/socket.io': {
         target: 'http://localhost:5000',
         changeOrigin: true,
         ws: true,
-        // Suppress proxy errors in console
         configure: (proxy) => {
-          proxy.on('error', (err) => {
-            // Silently handle expected WS reconnection errors
-          });
+          proxy.on('error', () => {});
+          proxy.on('proxyReqWs', () => {});
         },
       },
-    },
-    // Separate Vite HMR WebSocket to avoid conflicts with Socket.IO
-    hmr: {
-      port: 5174,
     },
   },
 });

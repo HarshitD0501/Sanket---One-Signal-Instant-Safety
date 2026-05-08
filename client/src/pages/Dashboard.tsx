@@ -4,28 +4,27 @@ import { useAuth } from '../context/AuthContext';
 import { useSOS } from '../context/SOSContext';
 import useGeolocation from '../hooks/useGeolocation';
 import useShake from '../hooks/useShake';
-import SOSButton from '../components/SOSButton';
+import SOSButton from '../components/app/SOSButton';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { HiOutlineMapPin, HiOutlineDevicePhoneMobile } from 'react-icons/hi2';
+import type { EmergencyContact, SOSEvent } from '../types';
 
-export default function Home() {
+export default function Dashboard() {
   const { user } = useAuth();
   const { activeSOS, triggerSOS, resolveSOS, sendLocationUpdate, shakeEnabled, setShakeEnabled } = useSOS();
   const { position, loading: geoLoading } = useGeolocation();
-  const [contacts, setContacts] = useState([]);
-  const [history, setHistory] = useState([]);
+  const [contacts, setContacts] = useState<EmergencyContact[]>([]);
+  const [history, setHistory] = useState<SOSEvent[]>([]);
   const [triggering, setTriggering] = useState(false);
-  const locationInterval = useRef(null);
+  const locationInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const navigate = useNavigate();
 
-  // Fetch contacts and history
   useEffect(() => {
     api.get('/contacts').then((r) => setContacts(r.data.data)).catch(() => {});
     api.get('/sos/history').then((r) => setHistory(r.data.data.slice(0, 5))).catch(() => {});
   }, [activeSOS]);
 
-  // Stream location during active SOS
   useEffect(() => {
     if (activeSOS) {
       locationInterval.current = setInterval(() => {
@@ -34,17 +33,17 @@ export default function Home() {
         });
       }, 5000);
     }
-    return () => clearInterval(locationInterval.current);
+    return () => { if (locationInterval.current) clearInterval(locationInterval.current); };
   }, [activeSOS, sendLocationUpdate]);
 
   const handleTrigger = useCallback(async () => {
     if (!position.lat) return toast.error('Location not available. Please enable GPS.');
-    if (contacts.length === 0) { toast.error('Add emergency contacts first!'); return navigate('/contacts'); }
+    if (contacts.length === 0) { toast.error('Add emergency contacts first!'); return navigate('/app/contacts'); }
     setTriggering(true);
     try {
       const data = await triggerSOS('tap', position.lat, position.lng);
       toast.success(`🚨 SOS triggered! ${data.contactsNotified} contacts notified.`);
-    } catch (err) {
+    } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to trigger SOS');
     } finally {
       setTriggering(false);
@@ -53,14 +52,13 @@ export default function Home() {
 
   const handleResolve = useCallback(async () => {
     try {
-      await resolveSOS(activeSOS.sosId || activeSOS._id);
+      await resolveSOS(activeSOS!.sosId || activeSOS!._id);
       toast.success('✅ Marked safe. All-clear sent to contacts.');
-    } catch (err) {
+    } catch {
       toast.error('Failed to resolve SOS');
     }
   }, [activeSOS, resolveSOS]);
 
-  // Shake-to-SOS
   useShake(useCallback(() => {
     if (!activeSOS && position.lat && contacts.length > 0) {
       triggerSOS('shake', position.lat, position.lng).then((data) => {
@@ -69,32 +67,22 @@ export default function Home() {
     }
   }, [activeSOS, position, contacts, triggerSOS]), shakeEnabled);
 
-  const formatTime = (d) => new Date(d).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' });
+  const formatTime = (d: string) => new Date(d).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' });
 
   return (
-    <div className="page container">
-      <div className="page-header" style={{ textAlign: 'center' }}>
-        <div className="page-subtitle">Mission Control</div>
-        <h1 className="page-title">SOS Dashboard</h1>
-      </div>
-
-      {/* Status */}
-      <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+    <div className="dashboard">
+      <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.5rem' }}>
+          Welcome back, <strong style={{ color: 'var(--text-primary)' }}>{user?.name}</strong>
+        </p>
         <div className={`status-badge ${activeSOS ? 'danger' : 'safe'}`}>
           <span className="status-dot" />
           {activeSOS ? 'SOS ACTIVE' : 'ALL SYSTEMS SAFE'}
         </div>
       </div>
 
-      {/* SOS Button */}
-      <SOSButton
-        onTrigger={handleTrigger}
-        isActive={!!activeSOS}
-        onResolve={handleResolve}
-        disabled={triggering || geoLoading}
-      />
+      <SOSButton onTrigger={handleTrigger} isActive={!!activeSOS} onResolve={handleResolve} disabled={triggering || geoLoading} />
 
-      {/* Tracking Link */}
       {activeSOS?.trackingId && (
         <div className="glass animate-fade-up" style={{ padding: '1rem', textAlign: 'center', marginBottom: '1.5rem' }}>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
@@ -106,41 +94,38 @@ export default function Home() {
         </div>
       )}
 
-      {/* Info Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
-        {/* Location */}
-        <div className="glass" style={{ padding: '1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-            <HiOutlineMapPin size={16} style={{ color: 'var(--accent)' }} />
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>Location</span>
+      <div className="info-grid">
+        <div className="glass info-card">
+          <div className="info-label">
+            <HiOutlineMapPin size={14} style={{ color: 'var(--accent)' }} />
+            Location
           </div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>
+          <div className="info-value">
             {position.lat ? `${position.lat.toFixed(4)}, ${position.lng.toFixed(4)}` : 'Acquiring...'}
           </div>
         </div>
-
-        {/* Shake Toggle */}
-        <div className="glass shake-toggle" onClick={() => setShakeEnabled(!shakeEnabled)} style={{ cursor: 'pointer' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-              <HiOutlineDevicePhoneMobile size={16} style={{ color: shakeEnabled ? 'var(--safe-green)' : 'var(--text-muted)' }} />
-              <span className="shake-label">Shake SOS</span>
+        <div className="glass info-card" onClick={() => setShakeEnabled(!shakeEnabled)} style={{ cursor: 'pointer' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <div className="info-label">
+                <HiOutlineDevicePhoneMobile size={14} style={{ color: shakeEnabled ? 'var(--safe)' : 'var(--text-muted)' }} />
+                Shake SOS
+              </div>
+              <div className="info-value">{shakeEnabled ? 'Active' : 'Disabled'}</div>
             </div>
-            <span className="shake-sublabel">{shakeEnabled ? 'Active' : 'Disabled'}</span>
-          </div>
-          <div className={`toggle ${shakeEnabled ? 'on' : ''}`} style={{ marginLeft: 'auto' }}>
-            <div className="toggle-knob" />
+            <div className={`toggle ${shakeEnabled ? 'on' : ''}`}>
+              <div className="toggle-knob" />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Quick Contacts */}
       <div style={{ marginBottom: '2rem' }}>
         <div className="page-subtitle" style={{ marginBottom: '0.75rem' }}>Emergency Contacts</div>
         {contacts.length === 0 ? (
           <div className="glass" style={{ padding: '1.5rem', textAlign: 'center' }}>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1rem' }}>No contacts added yet</p>
-            <button className="btn btn-secondary btn-sm" onClick={() => navigate('/contacts')}>Add Contacts</button>
+            <button className="btn btn-outline btn-sm" onClick={() => navigate('/app/contacts')}>Add Contacts</button>
           </div>
         ) : (
           <div className="quick-contacts">
@@ -154,20 +139,14 @@ export default function Home() {
         )}
       </div>
 
-      {/* Recent History */}
       {history.length > 0 && (
         <div>
           <div className="page-subtitle" style={{ marginBottom: '0.75rem' }}>Recent Alerts</div>
           <div className="history-list">
             {history.map((h) => (
               <div key={h._id} className="history-item glass">
-                <div className={`history-icon ${h.status === 'active' ? 'active' : 'resolved'}`}>
-                  {h.status === 'active' ? '🔴' : '✅'}
-                </div>
-                <div className="history-details">
-                  <div className="history-type">{h.triggerType === 'shake' ? '📳 Shake SOS' : '🔴 Tap SOS'}</div>
-                  <div className="history-time">{formatTime(h.createdAt)}</div>
-                </div>
+                <div className="history-type">{h.triggerType === 'shake' ? '📳 Shake' : '🔴 Tap'}</div>
+                <div className="history-time">{formatTime(h.createdAt)}</div>
                 <span className={`history-status ${h.status === 'active' ? 'text-red' : 'text-green'}`}>{h.status}</span>
               </div>
             ))}
