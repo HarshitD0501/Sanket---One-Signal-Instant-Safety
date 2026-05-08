@@ -92,8 +92,8 @@ const triggerSOS = async (req, res, next) => {
 
       // Voice call
       if (contact.callEnabled) {
-        const callResult = await makeEmergencyCall(contact.phone, req.user.name, address, trackingUrl);
-        results.voiceCallSid = callResult.callSid || null;
+        const callResult = await makeEmergencyCall(contact, req.user, { lat, lng, address });
+        results.voiceCallSid = callResult.sid || null;
         results.voiceCallStatus = callResult.success ? 'queued' : 'failed';
         results.voiceCalledAt = callResult.success ? new Date() : null;
       }
