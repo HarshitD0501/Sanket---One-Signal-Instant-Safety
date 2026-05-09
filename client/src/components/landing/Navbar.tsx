@@ -1,26 +1,20 @@
-import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import sanketMark from '../../assets/sanket-navbar-mark.svg';
 
 export default function Navbar() {
-  const [scrolled, setScrolled] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 50);
-    window.addEventListener('scroll', onScroll);
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
 
   const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
   };
 
   return (
-    <nav className={`landing-nav ${scrolled ? 'scrolled' : ''}`}>
-      <Link to="/" className="nav-logo">
-        🛡️ <span>Sanket</span>
+    <nav className="landing-nav">
+      <Link to="/" className="nav-logo" aria-label="Sanket home">
+        <img src={sanketMark} alt="" aria-hidden="true" className="nav-logo-mark" />
+        <span className="nav-logo-text">Sanket</span>
       </Link>
       <ul className="nav-links">
         <li><a href="#features" onClick={(e) => { e.preventDefault(); scrollTo('features'); }}>Features</a></li>
@@ -32,8 +26,8 @@ export default function Navbar() {
           Dashboard →
         </button>
       ) : (
-        <button className="btn btn-outline btn-sm" onClick={() => navigate('/login')}>
-          Sign In →
+        <button className="btn btn-primary btn-sm nav-signin-btn" onClick={() => navigate('/login')}>
+          Register / Login
         </button>
       )}
     </nav>

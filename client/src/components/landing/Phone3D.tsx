@@ -80,7 +80,8 @@ export default function Phone3D() {
 
       <div className="floating-badge badge-1">📍 Live Location Shared</div>
       <div className="floating-badge badge-2">📞 Voice Call Active</div>
-      <div className="floating-badge badge-3">✅ 3 Contacts Notified</div>
+      <div className="floating-badge badge-3">✅ Contacts Notified</div>
     </div>
   );
 }
+

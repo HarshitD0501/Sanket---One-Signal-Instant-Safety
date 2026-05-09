@@ -17,7 +17,7 @@ export default function CTA() {
         className="btn btn-primary btn-lg"
         onClick={() => navigate(user ? '/app' : '/register')}
       >
-        Get Started Free →
+        Get Started Free
       </button>
       <footer className="footer" style={{ marginTop: '4rem' }}>
         <p>

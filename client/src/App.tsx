@@ -1,7 +1,6 @@
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/shared/ProtectedRoute';
-import AppNavbar from './components/app/AppNavbar';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -11,12 +10,7 @@ import Contacts from './pages/Contacts';
 import TrackingPage from './pages/TrackingPage';
 
 function AppLayout() {
-  return (
-    <>
-      <AppNavbar />
-      <Outlet />
-    </>
-  );
+  return <Outlet />;
 }
 
 export default function App() {

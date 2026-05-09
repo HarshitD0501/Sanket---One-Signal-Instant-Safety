@@ -1,32 +1,89 @@
-import useScrollAnimation from '../../hooks/useScrollAnimation';
-import { HiOutlineBell, HiOutlineDevicePhoneMobile, HiOutlineMapPin, HiOutlineChatBubbleLeftRight, HiOutlineMap, HiOutlineLink } from 'react-icons/hi2';
+import { useEffect, useRef } from 'react';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
 const features = [
-  { icon: <HiOutlineBell size={24} />, title: 'One-Tap SOS', desc: 'Giant emergency button triggers instant alerts to all your trusted contacts within seconds.' },
-  { icon: <HiOutlineChatBubbleLeftRight size={24} />, title: 'WhatsApp + Voice Alerts', desc: 'Bilingual emergency messages via WhatsApp Business API and automated Twilio voice calls.' },
-  { icon: <HiOutlineMapPin size={24} />, title: 'Live GPS Tracking', desc: 'Real-time location sharing via Socket.IO with breadcrumb trail of your movement.' },
-  { icon: <HiOutlineDevicePhoneMobile size={24} />, title: 'Shake to SOS', desc: 'Device shake detection — no need to unlock your phone or find the button in panic.' },
-  { icon: <HiOutlineMap size={24} />, title: 'Safe Zones', desc: 'Nearby police stations and hospitals shown on map so you can find help fast.' },
-  { icon: <HiOutlineLink size={24} />, title: 'Shareable Tracking', desc: 'Public tracking links — your contacts don\'t need to login to see your live location.' },
+  'One-Tap SOS',
+  'WhatsApp + Voice Alerts',
+  'Live GPS Tracking',
+  'Safe Zones',
+  'Shareable Tracking',
 ];
 
+gsap.registerPlugin(ScrollTrigger);
+
 export default function Features() {
-  const gridRef = useScrollAnimation({ animation: 'fade-up', children: true, stagger: 0.1 });
+  const sectionRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!sectionRef.current) return;
+
+    const ctx = gsap.context(() => {
+      const header = gsap.utils.toArray<HTMLElement>('.features-intro > *');
+      const rows = gsap.utils.toArray<HTMLElement>('.feature-row');
+
+      gsap.set(header, { opacity: 0, y: 42 });
+      gsap.set(rows, { opacity: 0, y: 48 });
+
+      const timeline = gsap.timeline({
+        scrollTrigger: {
+          trigger: sectionRef.current,
+          start: 'top 72%',
+          end: 'top 28%',
+          toggleActions: 'play none none reverse',
+        },
+      });
+
+      timeline
+        .to(header, {
+          opacity: 1,
+          y: 0,
+          duration: 0.65,
+          stagger: 0.08,
+          ease: 'power3.out',
+        })
+        .to(
+          rows,
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.7,
+            stagger: 0.1,
+            ease: 'power3.out',
+          },
+          '-=0.28',
+        );
+    }, sectionRef);
+
+    return () => ctx.revert();
+  }, []);
 
   return (
-    <section className="features-section" id="features">
-      <div className="section-badge">✦ Features</div>
-      <h2 className="section-title">Everything You Need to Stay Safe</h2>
-      <p className="section-subtitle">
-        Built with cutting-edge technology to ensure your safety is never more than a tap away.
-      </p>
-      <div className="features-grid" ref={gridRef}>
-        {features.map((f, i) => (
-          <div key={i} className="feature-card">
-            <div className="feature-icon">{f.icon}</div>
-            <h3 className="feature-title">{f.title}</h3>
-            <p className="feature-desc">{f.desc}</p>
-          </div>
+    <section className="features-section" id="features" ref={sectionRef}>
+      <div className="features-intro">
+        <div className="section-badge">Features</div>
+        <h2 className="section-title">Everything You Need to Stay Safe</h2>
+        <p className="section-subtitle">
+          Each safety tool is available instantly, with a cleaner flow from the hero into the details.
+        </p>
+      </div>
+
+      <div className="features-flow-list">
+        {features.map((feature) => (
+          <article key={feature} className="feature-row">
+            <div className="feature-row-title-wrap" aria-hidden="true">
+              <div className="feature-row-title-track">
+                <span className="feature-row-title">{feature}</span>
+                <span className="feature-row-dot" />
+                <span className="feature-row-title ghost">{feature}</span>
+                <span className="feature-row-dot" />
+                <span className="feature-row-title ghost">{feature}</span>
+                <span className="feature-row-dot" />
+                <span className="feature-row-title ghost">{feature}</span>
+              </div>
+            </div>
+            <h3 className="sr-only">{feature}</h3>
+          </article>
         ))}
       </div>
     </section>

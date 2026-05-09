@@ -1,0 +1,21 @@
+<svg width="300" height="84" viewBox="0 0 300 84" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="shadow" x="-20%" y="-30%" width="140%" height="170%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2.6" result="blur"/>
+      <feOffset dy="2" result="offset"/>
+      <feColorMatrix in="offset" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.55 0"/>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="red" x1="14" y1="16" x2="286" y2="70" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff6a78"/>
+      <stop offset="1" stop-color="#ff1d33"/>
+    </linearGradient>
+  </defs>
+
+  <g filter="url(#shadow)">
+    <text x="128" y="46" font-family="Georgia, 'Times New Roman', serif" font-size="42" font-weight="700" font-style="italic" fill="url(#red)">Sanket</text>
+  </g>
+</svg>

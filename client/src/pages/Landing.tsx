@@ -7,8 +7,10 @@ import CTA from '../components/landing/CTA';
 export default function Landing() {
   return (
     <>
-      <Navbar />
-      <Hero />
+      <div className="landing-hero-shell">
+        <Navbar />
+        <Hero />
+      </div>
       <Features />
       <HowItWorks />
       <CTA />
