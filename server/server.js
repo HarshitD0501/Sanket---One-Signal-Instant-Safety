@@ -47,6 +47,8 @@ app.use('/api/contacts', require('./routes/contact.routes'));
 app.use('/api/sos', require('./routes/sos.routes'));
 app.use('/api/tracking', require('./routes/tracking.routes'));
 app.use('/api/map', require('./routes/map.routes'));
+app.use('/api/assistant', require('./routes/assistant.routes'));
+app.use('/api/livekit', require('./routes/livekit.routes'));
 
 // Health check
 app.get('/api/health', (req, res) => {

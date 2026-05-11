@@ -28,9 +28,9 @@ const features = [
     className: 'magic-bento-card--zones',
   },
   {
-    label: 'Share',
-    title: 'Public Tracking',
-    description: 'Contacts can open a secure tracking link without creating an account.',
+    label: 'AI',
+    title: 'Sanket Assistant',
+    description: 'Voice-first support with a text fallback when speaking is not safe.',
     className: 'magic-bento-card--share',
   },
 ];
@@ -152,40 +152,6 @@ export default function Features() {
     });
   };
 
-  const handleCardClick = (event: MouseEvent<HTMLElement>) => {
-    const card = event.currentTarget;
-    const rect = card.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-    const maxDistance = Math.max(
-      Math.hypot(x, y),
-      Math.hypot(x - rect.width, y),
-      Math.hypot(x, y - rect.height),
-      Math.hypot(x - rect.width, y - rect.height),
-    );
-
-    const ripple = document.createElement('span');
-    ripple.className = 'magic-bento-ripple';
-    ripple.style.width = `${maxDistance * 2}px`;
-    ripple.style.height = `${maxDistance * 2}px`;
-    ripple.style.left = `${x - maxDistance}px`;
-    ripple.style.top = `${y - maxDistance}px`;
-
-    card.appendChild(ripple);
-
-    gsap.fromTo(
-      ripple,
-      { scale: 0, opacity: 1 },
-      {
-        scale: 1,
-        opacity: 0,
-        duration: 0.8,
-        ease: 'power2.out',
-        onComplete: () => ripple.remove(),
-      },
-    );
-  };
-
   return (
     <section className="features-section" id="features" ref={sectionRef}>
       <div className="features-intro">
@@ -208,7 +174,6 @@ export default function Features() {
             className={`magic-bento-card ${feature.className ?? ''}`}
             onMouseMove={handleCardMouseMove}
             onMouseLeave={handleCardMouseLeave}
-            onClick={handleCardClick}
           >
             <div className="magic-bento-card__header">
               <span className="magic-bento-card__label">{feature.label}</span>
