@@ -19,6 +19,7 @@ export default function Dashboard() {
   const [triggering, setTriggering] = useState(false);
   const locationInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const navigate = useNavigate();
+  const hasUsableLocation = Number.isFinite(position.lat) && Number.isFinite(position.lng);
 
   useEffect(() => {
     api.get('/contacts').then((r) => setContacts(r.data.data)).catch(() => {});
@@ -37,35 +38,49 @@ export default function Dashboard() {
   }, [activeSOS, sendLocationUpdate]);
 
   const handleTrigger = useCallback(async () => {
-    if (!position.lat) return toast.error('Location not available. Please enable GPS.');
-    if (contacts.length === 0) { toast.error('Add emergency contacts first!'); return navigate('/app/contacts'); }
+    if (triggering) return;
+    if (!hasUsableLocation || geoLoading) return toast.error('Location not available. Please enable GPS.');
+
     setTriggering(true);
+    const loadingToast = toast.loading('Triggering SOS...');
+
     try {
       const data = await triggerSOS('tap', position.lat, position.lng);
-      toast.success(`🚨 SOS triggered! ${data.contactsNotified} contacts notified.`);
+      toast.success(`SOS triggered! ${data.contactsNotified} contacts notified.`, { id: loadingToast });
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to trigger SOS');
+      const message = err.response?.data?.message || 'Failed to trigger SOS';
+      toast.error(message, { id: loadingToast });
+      if (message.toLowerCase().includes('no emergency contacts')) {
+        navigate('/app/contacts');
+      }
     } finally {
       setTriggering(false);
     }
-  }, [position, contacts, triggerSOS, navigate]);
+  }, [triggering, hasUsableLocation, geoLoading, triggerSOS, position.lat, position.lng, navigate]);
 
   const handleResolve = useCallback(async () => {
     try {
       await resolveSOS(activeSOS!.sosId || activeSOS!._id);
-      toast.success('✅ Marked safe. All-clear sent to contacts.');
+      toast.success('Marked safe. All-clear sent to contacts.');
     } catch {
       toast.error('Failed to resolve SOS');
     }
   }, [activeSOS, resolveSOS]);
 
   useShake(useCallback(() => {
-    if (!activeSOS && position.lat && contacts.length > 0) {
+    if (!activeSOS && !triggering && hasUsableLocation && !geoLoading) {
+      setTriggering(true);
+      const loadingToast = toast.loading('Triggering shake SOS...');
+
       triggerSOS('shake', position.lat, position.lng).then((data) => {
-        toast.success(`📳 Shake SOS! ${data.contactsNotified} contacts notified.`);
-      }).catch(() => {});
+        toast.success(`Shake SOS triggered! ${data.contactsNotified} contacts notified.`, { id: loadingToast });
+      }).catch((err: any) => {
+        toast.error(err.response?.data?.message || 'Failed to trigger shake SOS', { id: loadingToast });
+      }).finally(() => {
+        setTriggering(false);
+      });
     }
-  }, [activeSOS, position, contacts, triggerSOS]), shakeEnabled);
+  }, [activeSOS, triggering, hasUsableLocation, geoLoading, triggerSOS, position.lat, position.lng]), shakeEnabled);
 
   const formatTime = (d: string) => new Date(d).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' });
 
@@ -75,13 +90,19 @@ export default function Dashboard() {
         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.5rem' }}>
           Welcome back, <strong style={{ color: 'var(--text-primary)' }}>{user?.name}</strong>
         </p>
-        <div className={`status-badge ${activeSOS ? 'danger' : 'safe'}`}>
+        <div className={`status-badge ${activeSOS || triggering ? 'danger' : 'safe'}`}>
           <span className="status-dot" />
-          {activeSOS ? 'SOS ACTIVE' : 'ALL SYSTEMS SAFE'}
+          {triggering ? 'SOS TRIGGERING' : activeSOS ? 'SOS ACTIVE' : 'ALL SYSTEMS SAFE'}
         </div>
       </div>
 
-      <SOSButton onTrigger={handleTrigger} isActive={!!activeSOS} onResolve={handleResolve} disabled={triggering || geoLoading} />
+      <SOSButton
+        onTrigger={handleTrigger}
+        isActive={!!activeSOS}
+        isPending={triggering}
+        onResolve={handleResolve}
+        disabled={triggering}
+      />
 
       {activeSOS?.trackingId && (
         <div className="glass animate-fade-up" style={{ padding: '1rem', textAlign: 'center', marginBottom: '1.5rem' }}>
@@ -101,7 +122,7 @@ export default function Dashboard() {
             Location
           </div>
           <div className="info-value">
-            {position.lat ? `${position.lat.toFixed(4)}, ${position.lng.toFixed(4)}` : 'Acquiring...'}
+            {hasUsableLocation ? `${position.lat.toFixed(4)}, ${position.lng.toFixed(4)}` : 'Acquiring...'}
           </div>
         </div>
         <div className="glass info-card" onClick={() => setShakeEnabled(!shakeEnabled)} style={{ cursor: 'pointer' }}>
@@ -145,7 +166,7 @@ export default function Dashboard() {
           <div className="history-list">
             {history.map((h) => (
               <div key={h._id} className="history-item glass">
-                <div className="history-type">{h.triggerType === 'shake' ? '📳 Shake' : '🔴 Tap'}</div>
+                <div className="history-type">{h.triggerType === 'shake' ? 'Shake' : 'Tap'}</div>
                 <div className="history-time">{formatTime(h.createdAt)}</div>
                 <span className={`history-status ${h.status === 'active' ? 'text-red' : 'text-green'}`}>{h.status}</span>
               </div>

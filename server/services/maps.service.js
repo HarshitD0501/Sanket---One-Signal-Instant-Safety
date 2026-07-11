@@ -1,46 +1,58 @@
 const axios = require('axios');
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 /**
- * Fetch nearby safe zones (police, hospitals, fire stations) using Google Places API
- * @param {number} lat - Latitude
- * @param {number} lng - Longitude
- * @param {number} radius - Search radius in meters (default 5000 = 5km)
- * @returns {Promise<object>} Categorized nearby places
+ * Fetch nearby police stations and hospitals using Google Places API.
+ * Google Nearby Search returns up to 20 results per page and up to 3 pages.
  */
-const getNearbyPlaces = async (lat, lng, radius = 5000) => {
+const getNearbyPlaces = async (lat, lng, radius = 10000) => {
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
 
   if (!apiKey) {
-    console.warn('⚠️  Google Maps API key not configured. Returning mock data.');
+    console.warn('Google Maps API key not configured. Returning mock data.');
     return getMockSafeZones(lat, lng);
   }
 
   const baseUrl = 'https://maps.googleapis.com/maps/api/place/nearbysearch/json';
-
-  // Fetch all categories in parallel
   const categories = [
-    { type: 'police', label: 'Police Station', icon: '🚔' },
-    { type: 'hospital', label: 'Hospital', icon: '🏥' },
-    { type: 'fire_station', label: 'Fire Station', icon: '🚒' },
+    { type: 'police', label: 'Police Station', icon: 'police' },
+    { type: 'hospital', label: 'Hospital', icon: 'hospital' },
   ];
 
   const results = await Promise.all(
     categories.map(async (category) => {
       try {
-        const response = await axios.get(baseUrl, {
-          params: {
-            location: `${lat},${lng}`,
-            radius,
-            type: category.type,
-            key: apiKey,
-          },
-        });
+        const places = [];
+        let pageToken = null;
+
+        for (let page = 0; page < 3; page += 1) {
+          if (pageToken) {
+            await sleep(1800);
+          }
+
+          const response = await axios.get(baseUrl, {
+            params: pageToken
+              ? { pagetoken: pageToken, key: apiKey }
+              : {
+                  location: `${lat},${lng}`,
+                  radius,
+                  type: category.type,
+                  key: apiKey,
+                },
+          });
+
+          places.push(...(response.data.results || []));
+
+          pageToken = response.data.next_page_token;
+          if (!pageToken) break;
+        }
 
         return {
           category: category.type,
           label: category.label,
           icon: category.icon,
-          places: (response.data.results || []).slice(0, 5).map((place) => ({
+          places: places.map((place) => ({
             id: place.place_id,
             name: place.name,
             address: place.vicinity,
@@ -51,7 +63,7 @@ const getNearbyPlaces = async (lat, lng, radius = 5000) => {
           })),
         };
       } catch (error) {
-        console.error(`❌ Google Places API error for ${category.type}:`, error.message);
+        console.error(`Google Places API error for ${category.type}:`, error.message);
         return {
           category: category.type,
           label: category.label,
@@ -65,9 +77,6 @@ const getNearbyPlaces = async (lat, lng, radius = 5000) => {
   return results;
 };
 
-/**
- * Reverse geocode coordinates to address using Google Geocoding API
- */
 const reverseGeocode = async (lat, lng) => {
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
 
@@ -91,66 +100,63 @@ const reverseGeocode = async (lat, lng) => {
     }
     return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
   } catch (error) {
-    console.error('❌ Reverse geocoding error:', error.message);
+    console.error('Reverse geocoding error:', error.message);
     return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
   }
 };
 
-/**
- * Mock safe zones for development without API key
- */
-const getMockSafeZones = (lat, lng) => {
-  return [
-    {
-      category: 'police',
-      label: 'Police Station',
-      icon: '🚔',
-      places: [
-        {
-          id: 'mock-police-1',
-          name: 'Local Police Station',
-          address: 'Near your location',
-          lat: lat + 0.005,
-          lng: lng + 0.003,
-          rating: 4.2,
-          isOpen: true,
-        },
-      ],
-    },
-    {
-      category: 'hospital',
-      label: 'Hospital',
-      icon: '🏥',
-      places: [
-        {
-          id: 'mock-hospital-1',
-          name: 'City Hospital',
-          address: 'Near your location',
-          lat: lat - 0.004,
-          lng: lng + 0.006,
-          rating: 4.5,
-          isOpen: true,
-        },
-      ],
-    },
-    {
-      category: 'fire_station',
-      label: 'Fire Station',
-      icon: '🚒',
-      places: [
-        {
-          id: 'mock-fire-1',
-          name: 'Fire Station',
-          address: 'Near your location',
-          lat: lat + 0.007,
-          lng: lng - 0.004,
-          rating: 4.0,
-          isOpen: true,
-        },
-      ],
-    },
-  ];
-};
+const getMockSafeZones = (lat, lng) => [
+  {
+    category: 'police',
+    label: 'Police Station',
+    icon: 'police',
+    places: [
+      {
+        id: 'mock-police-1',
+        name: 'Local Police Station',
+        address: 'Near your location',
+        lat: lat + 0.005,
+        lng: lng + 0.003,
+        rating: 4.2,
+        isOpen: true,
+      },
+      {
+        id: 'mock-police-2',
+        name: 'Police Help Point',
+        address: 'Near your location',
+        lat: lat - 0.006,
+        lng: lng + 0.004,
+        rating: 4.1,
+        isOpen: true,
+      },
+    ],
+  },
+  {
+    category: 'hospital',
+    label: 'Hospital',
+    icon: 'hospital',
+    places: [
+      {
+        id: 'mock-hospital-1',
+        name: 'City Hospital',
+        address: 'Near your location',
+        lat: lat - 0.004,
+        lng: lng + 0.006,
+        rating: 4.5,
+        isOpen: true,
+      },
+      {
+        id: 'mock-hospital-2',
+        name: 'Emergency Medical Center',
+        address: 'Near your location',
+        lat: lat + 0.006,
+        lng: lng - 0.005,
+        rating: 4.3,
+        isOpen: true,
+      },
+    ],
+  },
+];
 
 module.exports = {
   getNearbyPlaces,

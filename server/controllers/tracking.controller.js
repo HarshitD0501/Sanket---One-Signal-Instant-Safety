@@ -1,6 +1,12 @@
 const SOSEvent = require('../models/SOSEvent');
 const LocationHistory = require('../models/LocationHistory');
 const User = require('../models/User');
+const { parseCoordinates } = require('../utils/locationValidation');
+
+const isTrackingExpired = (sosEvent) => (
+  sosEvent.status !== 'active'
+  && (!sosEvent.trackingExpiresAt || sosEvent.trackingExpiresAt <= new Date())
+);
 
 /**
  * GET /api/tracking/:trackingId — PUBLIC (no auth)
@@ -20,10 +26,18 @@ const getTrackingData = async (req, res, next) => {
       });
     }
 
+    if (isTrackingExpired(sosEvent)) {
+      return res.status(404).json({
+        success: false,
+        message: 'Tracking link not found or expired.',
+      });
+    }
+
     // Get location history
     const locationHistory = await LocationHistory.findOne({
       sosEventId: sosEvent._id,
     });
+    const isActive = sosEvent.status === 'active';
 
     res.json({
       success: true,
@@ -33,9 +47,10 @@ const getTrackingData = async (req, res, next) => {
         status: sosEvent.status,
         triggerType: sosEvent.triggerType,
         location: sosEvent.location,
-        coordinates: locationHistory?.coordinates || [],
+        coordinates: isActive ? locationHistory?.coordinates || [] : [],
         triggeredAt: sosEvent.createdAt,
         resolvedAt: sosEvent.resolvedAt,
+        trackingExpiresAt: sosEvent.trackingExpiresAt,
       },
     });
   } catch (error) {
@@ -49,14 +64,16 @@ const getTrackingData = async (req, res, next) => {
  */
 const updateLocation = async (req, res, next) => {
   try {
-    const { lat, lng } = req.body;
+    const coordinates = parseCoordinates(req.body);
 
-    if (!lat || !lng) {
+    if (!coordinates.isValid) {
       return res.status(400).json({
         success: false,
-        message: 'lat and lng are required.',
+        message: coordinates.message,
       });
     }
+
+    const { lat, lng } = coordinates;
 
     // Find active SOS
     const activeSOS = await SOSEvent.findOne({

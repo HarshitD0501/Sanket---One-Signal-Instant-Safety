@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { AUTH_DETACHED } from '../config/authMode';
 
 const api = axios.create({
   baseURL: '/api',
@@ -16,9 +17,12 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
-      localStorage.removeItem('sanket_token');
-      window.location.href = '/login';
+    if (!AUTH_DETACHED && err.response?.status === 401) {
+      const isAuthRoute = err.config?.url?.includes('/auth/login') || err.config?.url?.includes('/auth/register');
+      if (!isAuthRoute) {
+        localStorage.removeItem('sanket_token');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(err);
   }

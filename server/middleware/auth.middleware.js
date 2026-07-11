@@ -6,6 +6,7 @@ const authMiddleware = async (req, res, next) => {
     // Get token from header
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.warn('🔑 Auth Middleware: No Bearer token provided in Authorization header.');
       return res.status(401).json({
         success: false,
         message: 'Access denied. No token provided.',
@@ -20,6 +21,7 @@ const authMiddleware = async (req, res, next) => {
     // Attach user to request
     const user = await User.findById(decoded.id);
     if (!user) {
+      console.warn(`🔑 Auth Middleware: User not found in database for ID ${decoded.id}`);
       return res.status(401).json({
         success: false,
         message: 'User not found. Token is invalid.',
@@ -29,6 +31,7 @@ const authMiddleware = async (req, res, next) => {
     req.user = user;
     next();
   } catch (error) {
+    console.error('🔑 Auth Middleware Error:', error.name, '-', error.message);
     if (error.name === 'JsonWebTokenError') {
       return res.status(401).json({
         success: false,

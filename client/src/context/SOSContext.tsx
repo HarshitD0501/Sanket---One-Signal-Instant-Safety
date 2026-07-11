@@ -26,6 +26,7 @@ export function SOSProvider({ children }: { children: ReactNode }) {
     const s = io(window.location.origin, {
       path: '/socket.io',
       transports: ['websocket', 'polling'],
+      auth: { token },
     });
     setSocket(s);
 
@@ -40,9 +41,9 @@ export function SOSProvider({ children }: { children: ReactNode }) {
     const res = await api.post('/sos/trigger', { triggerType: type, lat, lng });
     setActiveSOS(res.data.data);
     if (socket) {
-      socket.emit('join-sos', res.data.data.trackingId);
+      socket.emit('join-sos-room', res.data.data.trackingId);
     }
-    return { contactsNotified: res.data.contactsNotified || 0 };
+    return { contactsNotified: res.data.data.contactsNotified || 0 };
   }, [socket]);
 
   const resolveSOS = useCallback(async (sosId: string) => {
@@ -51,15 +52,10 @@ export function SOSProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const sendLocationUpdate = useCallback((lat: number, lng: number) => {
-    if (socket && activeSOS) {
-      socket.emit('location-update', {
-        trackingId: activeSOS.trackingId,
-        lat, lng,
-        timestamp: new Date().toISOString(),
-      });
+    if (activeSOS) {
       api.post('/tracking/update-location', { lat, lng }).catch(() => {});
     }
-  }, [socket, activeSOS]);
+  }, [activeSOS]);
 
   return (
     <SOSContext.Provider value={{ activeSOS, shakeEnabled, setShakeEnabled, triggerSOS, resolveSOS, sendLocationUpdate }}>

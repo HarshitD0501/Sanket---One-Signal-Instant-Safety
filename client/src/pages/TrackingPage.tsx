@@ -40,7 +40,7 @@ export default function TrackingPage() {
 
     const socket = io(window.location.origin, { path: '/socket.io', transports: ['websocket', 'polling'] });
     socket.emit('join-tracking', trackingId);
-    socket.on('location-update', (data: Coord) => {
+    socket.on('location-updated', (data: Coord) => {
       setPosition({ lat: data.lat, lng: data.lng });
       setTrail((prev) => [...prev, data]);
       setLastUpdate(new Date().toLocaleTimeString());

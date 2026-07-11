@@ -20,6 +20,15 @@ const getContacts = async (req, res, next) => {
   }
 };
 
+const allowedRelations = ['Mother', 'Father', 'Spouse', 'Sibling', 'Friend', 'Other'];
+const cleanRelation = (rel) => {
+  if (!rel) return 'Other';
+  const found = allowedRelations.find(
+    (r) => r.toLowerCase() === rel.trim().toLowerCase()
+  );
+  return found || 'Other';
+};
+
 /**
  * POST /api/contacts
  */
@@ -40,7 +49,7 @@ const addContact = async (req, res, next) => {
       userId: req.user._id,
       name,
       phone,
-      relation: relation || 'Other',
+      relation: cleanRelation(relation),
       whatsappEnabled: whatsappEnabled !== false,
       callEnabled: callEnabled !== false,
     });
@@ -75,7 +84,11 @@ const updateContact = async (req, res, next) => {
     const allowedFields = ['name', 'phone', 'relation', 'whatsappEnabled', 'callEnabled'];
     allowedFields.forEach((field) => {
       if (req.body[field] !== undefined) {
-        contact[field] = req.body[field];
+        if (field === 'relation') {
+          contact[field] = cleanRelation(req.body[field]);
+        } else {
+          contact[field] = req.body[field];
+        }
       }
     });
 

@@ -3,30 +3,77 @@ const SOSEvent = require('../models/SOSEvent');
 const EmergencyContact = require('../models/EmergencyContact');
 const LocationHistory = require('../models/LocationHistory');
 const User = require('../models/User');
-const { sendSOSAlert, sendAllClearMessage } = require('../services/whatsapp.service');
-const { makeEmergencyCall } = require('../services/twilio.service');
+const { sendAllClearMessage } = require('../services/whatsapp.service');
+const { dispatchSOSNotifications } = require('../services/sosNotification.service');
 const { reverseGeocode } = require('../services/maps.service');
+const { parseCoordinates } = require('../utils/locationValidation');
 
-/**
- * POST /api/sos/trigger
- * Core SOS trigger — sends WhatsApp + Voice calls to all contacts
- */
+const parsePositiveNumber = (value, fallback) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const TRACKING_LINK_TTL_HOURS = parsePositiveNumber(process.env.TRACKING_LINK_TTL_HOURS, 24);
+const RESOLVED_TRACKING_TTL_MINUTES = parsePositiveNumber(process.env.RESOLVED_TRACKING_TTL_MINUTES, 60);
+
+const addHours = (date, hours) => new Date(date.getTime() + hours * 60 * 60 * 1000);
+const addMinutes = (date, minutes) => new Date(date.getTime() + minutes * 60 * 1000);
+
+const isDuplicateActiveSOSError = (error) => (
+  error?.code === 11000
+  && (
+    error?.keyPattern?.userId
+    || error?.keyValue?.status === 'active'
+    || error?.message?.includes('one_active_sos_per_user')
+  )
+);
+
+const sendActiveSOSConflict = async (res, userId) => {
+  const activeSOS = await SOSEvent.findOne({
+    userId,
+    status: 'active',
+  }).select('trackingId');
+
+  return res.status(400).json({
+    success: false,
+    message: 'An SOS is already active.',
+    data: activeSOS ? { trackingId: activeSOS.trackingId } : undefined,
+  });
+};
+
+const enrichSOSAddress = async (sosEventId, lat, lng) => {
+  try {
+    const address = await reverseGeocode(lat, lng);
+    if (!address) return;
+
+    await SOSEvent.updateOne(
+      { _id: sosEventId, status: 'active' },
+      { $set: { 'location.address': address } }
+    );
+  } catch (error) {
+    console.warn('SOS address enrichment failed:', error.message);
+  }
+};
+
 const triggerSOS = async (req, res, next) => {
   try {
-    const { triggerType, lat, lng } = req.body;
+    const { triggerType } = req.body;
+    const coordinates = parseCoordinates(req.body);
 
-    if (!lat || !lng) {
+    if (!coordinates.isValid) {
       return res.status(400).json({
         success: false,
-        message: 'Location (lat, lng) is required to trigger SOS.',
+        message: coordinates.message,
       });
     }
 
-    // Check if user already has an active SOS
+    const { lat, lng } = coordinates;
+
     const existingActive = await SOSEvent.findOne({
       userId: req.user._id,
       status: 'active',
     });
+
     if (existingActive) {
       return res.status(400).json({
         success: false,
@@ -35,7 +82,6 @@ const triggerSOS = async (req, res, next) => {
       });
     }
 
-    // Get user's emergency contacts
     const contacts = await EmergencyContact.find({ userId: req.user._id });
     if (contacts.length === 0) {
       return res.status(400).json({
@@ -44,104 +90,63 @@ const triggerSOS = async (req, res, next) => {
       });
     }
 
-    // Reverse geocode address
-    const address = await reverseGeocode(lat, lng);
-
-    // Generate unique tracking ID
     const trackingId = uuidv4();
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
     const trackingUrl = `${clientUrl}/track/${trackingId}`;
+    const trackingExpiresAt = addHours(new Date(), TRACKING_LINK_TTL_HOURS);
 
-    // Create SOS event
     const sosEvent = await SOSEvent.create({
       userId: req.user._id,
       triggerType: triggerType || 'tap',
       status: 'active',
-      location: { lat, lng, address },
+      location: { lat, lng, address: '' },
       trackingId,
-      notifications: contacts.map((c) => ({
-        contactId: c._id,
-        contactName: c.name,
-        contactPhone: c.phone,
+      trackingExpiresAt,
+      notifications: contacts.map((contact) => ({
+        contactId: contact._id,
+        contactName: contact.name,
+        contactPhone: contact.phone,
       })),
     });
 
-    // Create location history
     await LocationHistory.create({
       sosEventId: sosEvent._id,
       userId: req.user._id,
       coordinates: [{ lat, lng, timestamp: new Date() }],
     });
 
-    // Update user's SOS status and last known location
     await User.findByIdAndUpdate(req.user._id, {
       sosActive: true,
       lastKnownLocation: { lat, lng, updatedAt: new Date() },
     });
 
-    // Send notifications in parallel (non-blocking)
-    const notificationPromises = contacts.map(async (contact) => {
-      const results = { contactId: contact._id };
-
-      // WhatsApp alert
-      if (contact.whatsappEnabled) {
-        const waResult = await sendSOSAlert(contact, req.user, { lat, lng, address }, trackingUrl);
-        results.whatsappSent = waResult.success;
-        results.whatsappSentAt = waResult.success ? new Date() : null;
-      }
-
-      // Voice call
-      if (contact.callEnabled) {
-        const callResult = await makeEmergencyCall(contact, req.user, { lat, lng, address });
-        results.voiceCallSid = callResult.sid || null;
-        results.voiceCallStatus = callResult.success ? 'queued' : 'failed';
-        results.voiceCalledAt = callResult.success ? new Date() : null;
-      }
-
-      return results;
+    dispatchSOSNotifications(sosEvent._id, { trackingUrl }).catch((error) => {
+      console.error('SOS notification dispatch failed:', error.message);
     });
 
-    // Execute all notifications (don't block response)
-    Promise.all(notificationPromises).then(async (notifResults) => {
-      // Update SOS event with notification results
-      for (const result of notifResults) {
-        await SOSEvent.updateOne(
-          { _id: sosEvent._id, 'notifications.contactId': result.contactId },
-          {
-            $set: {
-              'notifications.$.whatsappSent': result.whatsappSent || false,
-              'notifications.$.whatsappSentAt': result.whatsappSentAt,
-              'notifications.$.voiceCallSid': result.voiceCallSid,
-              'notifications.$.voiceCallStatus': result.voiceCallStatus,
-              'notifications.$.voiceCalledAt': result.voiceCalledAt,
-            },
-          }
-        );
-      }
-      console.log(`🚨 SOS notifications sent for tracking: ${trackingId}`);
-    }).catch((err) => {
-      console.error('❌ Notification error:', err.message);
-    });
+    enrichSOSAddress(sosEvent._id, lat, lng);
 
     res.status(201).json({
       success: true,
-      message: '🚨 SOS triggered! Notifications being sent.',
+      message: 'SOS triggered. Notifications are being sent.',
       data: {
         sosId: sosEvent._id,
         trackingId,
         trackingUrl,
-        location: { lat, lng, address },
+        trackingExpiresAt,
+        location: { lat, lng, address: '' },
         contactsNotified: contacts.length,
       },
     });
   } catch (error) {
+    if (isDuplicateActiveSOSError(error)) {
+      return sendActiveSOSConflict(res, req.user._id);
+    }
+
     next(error);
   }
 };
 
-/**
- * PATCH /api/sos/:id/resolve
- */
 const resolveSOS = async (req, res, next) => {
   try {
     const sosEvent = await SOSEvent.findOne({
@@ -157,25 +162,23 @@ const resolveSOS = async (req, res, next) => {
       });
     }
 
-    // Mark as resolved
+    const resolvedAt = new Date();
     sosEvent.status = req.body.status === 'false_alarm' ? 'false_alarm' : 'resolved';
-    sosEvent.resolvedAt = new Date();
+    sosEvent.resolvedAt = resolvedAt;
+    sosEvent.trackingExpiresAt = addMinutes(resolvedAt, RESOLVED_TRACKING_TTL_MINUTES);
     await sosEvent.save();
 
-    // Update user's SOS status
     await User.findByIdAndUpdate(req.user._id, { sosActive: false });
 
-    // Send "all clear" WhatsApp messages
     const contacts = await EmergencyContact.find({ userId: req.user._id });
     contacts.forEach((contact) => {
       if (contact.whatsappEnabled) {
-        sendAllClearMessage(contact, req.user).catch((err) => {
-          console.error(`❌ All-clear message failed for ${contact.name}:`, err.message);
+        sendAllClearMessage(contact, req.user).catch((error) => {
+          console.error(`All-clear message failed for ${contact.name}:`, error.message);
         });
       }
     });
 
-    // Emit Socket.IO event
     const io = req.app.get('io');
     if (io) {
       io.to(`sos-${sosEvent.trackingId}`).emit('sos-ended', {
@@ -186,7 +189,7 @@ const resolveSOS = async (req, res, next) => {
 
     res.json({
       success: true,
-      message: '✅ SOS resolved. All-clear messages being sent.',
+      message: 'SOS resolved. All-clear messages are being sent.',
       data: {
         sosId: sosEvent._id,
         status: sosEvent.status,
@@ -198,9 +201,6 @@ const resolveSOS = async (req, res, next) => {
   }
 };
 
-/**
- * GET /api/sos/active
- */
 const getActiveSOS = async (req, res, next) => {
   try {
     const activeSOS = await SOSEvent.findOne({
@@ -217,9 +217,6 @@ const getActiveSOS = async (req, res, next) => {
   }
 };
 
-/**
- * GET /api/sos/history
- */
 const getSOSHistory = async (req, res, next) => {
   try {
     const events = await SOSEvent.find({ userId: req.user._id })

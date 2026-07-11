@@ -1,8 +1,21 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
+const normalizeEmail = (email) => (
+  typeof email === 'string' ? email.trim().toLowerCase() : ''
+);
+
+const requireJwtSecret = () => {
+  if (!process.env.JWT_SECRET) {
+    const error = new Error('JWT secret is not configured.');
+    error.statusCode = 500;
+    throw error;
+  }
+};
+
 // Generate JWT token
 const generateToken = (id) => {
+  requireJwtSecret();
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRE || '7d',
   });
@@ -13,7 +26,8 @@ const generateToken = (id) => {
  */
 const register = async (req, res, next) => {
   try {
-    const { name, email, password, phone } = req.body;
+    const { name, password, phone } = req.body;
+    const email = normalizeEmail(req.body.email);
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -25,7 +39,12 @@ const register = async (req, res, next) => {
     }
 
     // Create user
-    const user = await User.create({ name, email, password, phone });
+    const user = await User.create({
+      name: typeof name === 'string' ? name.trim() : name,
+      email,
+      password,
+      phone: typeof phone === 'string' ? phone.trim() : phone,
+    });
 
     // Generate token
     const token = generateToken(user._id);
@@ -53,7 +72,8 @@ const register = async (req, res, next) => {
  */
 const login = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const email = normalizeEmail(req.body.email);
+    const { password } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({

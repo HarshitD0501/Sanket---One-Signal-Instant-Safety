@@ -14,15 +14,15 @@ const createLiveKitToken = async (req, res, next) => {
       });
     }
 
-    const requestedRoom = typeof req.body.roomName === 'string' ? req.body.roomName : '';
+    const requestedRoom = typeof req.body.roomName === 'string' ? req.body.roomName.trim() : '';
     const roomName = requestedRoom.match(/^sanket-assistant-[a-zA-Z0-9-]{6,64}$/)
       ? requestedRoom
       : `sanket-assistant-${crypto.randomUUID()}`;
 
-    const identity = `guest-${crypto.randomUUID()}`;
+    const identity = `user-${req.user._id}`;
     const participantName = typeof req.body.name === 'string' && req.body.name.trim()
       ? req.body.name.trim().slice(0, 40)
-      : 'Sanket visitor';
+      : req.user.name;
 
     const token = new AccessToken(apiKey, apiSecret, {
       identity,

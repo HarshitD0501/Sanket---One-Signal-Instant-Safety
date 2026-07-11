@@ -1,12 +1,13 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import api from '../services/api';
 import type { User } from '../types';
+import { AUTH_DETACHED, DETACHED_USER } from '../config/authMode';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, phone: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
+  register: (name: string, email: string, phone: string, password: string) => Promise<User>;
   logout: () => void;
 }
 
@@ -17,6 +18,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (AUTH_DETACHED) {
+      setUser(DETACHED_USER);
+      setLoading(false);
+      return;
+    }
+
     const token = localStorage.getItem('sanket_token');
     if (token) {
       api.get('/auth/profile')
@@ -30,19 +37,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     const res = await api.post('/auth/login', { email, password });
-    localStorage.setItem('sanket_token', res.data.token);
-    setUser(res.data.user);
+    localStorage.setItem('sanket_token', res.data.data.token);
+    setUser(res.data.data.user);
+    return res.data.data.user as User;
   };
 
   const register = async (name: string, email: string, phone: string, password: string) => {
     const res = await api.post('/auth/register', { name, email, phone, password });
-    localStorage.setItem('sanket_token', res.data.token);
-    setUser(res.data.user);
+    localStorage.setItem('sanket_token', res.data.data.token);
+    setUser(res.data.data.user);
+    return res.data.data.user as User;
   };
 
   const logout = () => {
     localStorage.removeItem('sanket_token');
-    setUser(null);
+    setUser(AUTH_DETACHED ? DETACHED_USER : null);
   };
 
   return (

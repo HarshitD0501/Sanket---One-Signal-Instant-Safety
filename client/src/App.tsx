@@ -8,9 +8,18 @@ import Dashboard from './pages/Dashboard';
 import MapView from './pages/MapView';
 import Contacts from './pages/Contacts';
 import TrackingPage from './pages/TrackingPage';
+import AppNavbar from './components/app/AppNavbar';
+import { AUTH_DETACHED } from './config/authMode';
 
 function AppLayout() {
-  return <Outlet />;
+  return (
+    <div className="app-shell">
+      <AppNavbar />
+      <main className="app-main">
+        <Outlet />
+      </main>
+    </div>
+  );
 }
 
 export default function App() {
@@ -20,8 +29,8 @@ export default function App() {
     <Routes>
       {/* Public routes */}
       <Route path="/" element={<Landing />} />
-      <Route path="/login" element={user ? <Navigate to="/app" replace /> : <Login />} />
-      <Route path="/register" element={user ? <Navigate to="/app" replace /> : <Register />} />
+      <Route path="/login" element={AUTH_DETACHED || user ? <Navigate to="/app" replace /> : <Login />} />
+      <Route path="/register" element={AUTH_DETACHED || user ? <Navigate to="/app" replace /> : <Register />} />
       <Route path="/track/:trackingId" element={<TrackingPage />} />
 
       {/* Protected app routes */}

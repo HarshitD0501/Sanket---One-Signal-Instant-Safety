@@ -29,6 +29,11 @@ const sosEventSchema = new mongoose.Schema({
     unique: true,
     index: true,
   },
+  trackingExpiresAt: {
+    type: Date,
+    required: true,
+    index: true,
+  },
   notifications: [{
     contactId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -45,6 +50,9 @@ const sosEventSchema = new mongoose.Schema({
       default: null,
     },
     voiceCalledAt: { type: Date, default: null },
+    notificationAttemptCount: { type: Number, default: 0 },
+    notificationLastAttemptAt: { type: Date, default: null },
+    notificationLastError: { type: String, default: null },
   }],
   resolvedAt: {
     type: Date,
@@ -53,5 +61,14 @@ const sosEventSchema = new mongoose.Schema({
 }, {
   timestamps: true,
 });
+
+sosEventSchema.index(
+  { userId: 1, status: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { status: 'active' },
+    name: 'one_active_sos_per_user',
+  }
+);
 
 module.exports = mongoose.model('SOSEvent', sosEventSchema);

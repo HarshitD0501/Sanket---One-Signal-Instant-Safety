@@ -46,7 +46,7 @@ const generateSafetyReply = async ({ message, history }) => {
       contents: toGeminiContents(history, message),
       generationConfig: {
         temperature: 0.25,
-        maxOutputTokens: 220,
+        maxOutputTokens: 1000,
       },
     },
     {
@@ -70,4 +70,85 @@ const generateSafetyReply = async ({ message, history }) => {
   return text;
 };
 
-module.exports = { generateSafetyReply };
+const generateSOSVoiceScript = async (userName, locationAddress) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  const model = process.env.GEMINI_MODEL || 'gemini-3-flash-preview';
+
+  if (!apiKey) {
+    console.warn('⚠️ Gemini API key is not configured for voice script generation. Using fallback.');
+    return null;
+  }
+
+  try {
+    const prompt = `You are a professional emergency voice calling assistant for "Sanket", a women's safety platform.
+Generate a highly urgent, clear, and calm voice message to be spoken to the emergency contact of ${userName}.
+The user is in danger and needs immediate help.
+Their location is: ${locationAddress || 'unknown location'}.
+
+The voice call must convey this information:
+1. This is an emergency alert from Sanket on behalf of ${userName}.
+2. ${userName} is in immediate danger and needs your help.
+3. Their current location is: ${locationAddress || 'unknown location'}.
+4. A WhatsApp message has been sent with a live location tracking link.
+5. They must check WhatsApp immediately.
+
+Important Constraints:
+- Output your response in a raw JSON object format with exactly two keys: "english" and "hindi".
+- Do NOT add any markdown formatting (like \`\`\`json or \`\`\`), explanation, introductory/concluding text, or conversational filler. Output ONLY the raw JSON string.
+- Under "english", write the English version of the spoken script (concise, under 45 words).
+- Under "hindi", write the Hindi translation of the spoken script (concise translation, under 45 words, written in standard Devanagari script).
+- Tone must be urgent, clear, and calm.`;
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+    const response = await axios.post(
+      url,
+      {
+        contents: [{
+          role: 'user',
+          parts: [{ text: prompt }]
+        }],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 1000,
+          responseMimeType: 'application/json'
+        },
+      },
+      {
+        params: { key: apiKey },
+        timeout: 10000,
+      }
+    );
+
+    const rawText = response.data?.candidates?.[0]?.content?.parts
+      ?.map((part) => part.text)
+      .filter(Boolean)
+      .join('\n')
+      .trim();
+
+    if (!rawText) return null;
+
+    try {
+      let cleaned = rawText;
+      if (cleaned.startsWith('```')) {
+        cleaned = cleaned.replace(/^```json\s*/i, '').replace(/```$/, '');
+      }
+      const data = JSON.parse(cleaned);
+      if (data.english && data.hindi) {
+        return {
+          english: data.english.trim(),
+          hindi: data.hindi.trim()
+        };
+      }
+    } catch (parseErr) {
+      console.warn('⚠️ Gemini output could not be parsed as structured JSON, trying to treat as raw text:', parseErr.message);
+    }
+
+    return null;
+  } catch (error) {
+    console.error('❌ Failed to generate AI voice script:', error.message);
+    return null;
+  }
+};
+
+module.exports = { generateSafetyReply, generateSOSVoiceScript };
+

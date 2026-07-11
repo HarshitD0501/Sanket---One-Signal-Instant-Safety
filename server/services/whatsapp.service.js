@@ -8,20 +8,56 @@ const getClient = () => {
 };
 
 /**
- * Send WhatsApp message via Twilio WhatsApp API
+ * Normalizes phone numbers for Twilio WhatsApp E.164 formatting (starts with '+').
+ * Strips any stray spaces, backticks, brackets, dashes, or non-digit characters.
+ */
+const formatPhoneForTwilio = (phone) => {
+  if (!phone) return '';
+  // Strip all characters except digits and the plus sign
+  let cleaned = phone.replace(/[^\d+]/g, '').trim();
+
+  if (cleaned.startsWith('+')) {
+    return cleaned;
+  }
+  // Indian number starting with 91 but no plus
+  if (cleaned.startsWith('91') && cleaned.length === 12) {
+    return `+${cleaned}`;
+  }
+  // Indian number starting with 0
+  if (cleaned.startsWith('0') && cleaned.length === 11) {
+    return `+91${cleaned.slice(1)}`;
+  }
+  // Standard 10-digit number
+  if (cleaned.length === 10) {
+    return `+91${cleaned}`;
+  }
+  // Any other number length (e.g. 12 digits) without plus
+  if (cleaned.length > 10) {
+    return `+${cleaned}`;
+  }
+  return cleaned;
+};
+
+/**
+ * Send WhatsApp message using Twilio WhatsApp API
  */
 const sendWhatsAppMessage = async (to, message) => {
   const client = getClient();
   const from = process.env.TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886';
 
   if (!client) {
-    console.warn('⚠️  Twilio credentials not configured. Skipping WhatsApp.');
-    return { success: false, reason: 'not_configured' };
+    console.error('❌ Twilio credentials not configured. WhatsApp send failed completely.');
+    return { success: false, reason: 'not_configured', error: 'Twilio credentials not configured' };
+  }
+
+  const twilioTo = formatPhoneForTwilio(to);
+  if (!twilioTo) {
+    console.error(`❌ Cannot send WhatsApp: invalid recipient phone number.`);
+    return { success: false, reason: 'invalid_phone' };
   }
 
   try {
-    // Format: whatsapp:+919454535137
-    const formattedTo = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`;
+    const formattedTo = twilioTo.startsWith('whatsapp:') ? twilioTo : `whatsapp:${twilioTo}`;
     const formattedFrom = from.startsWith('whatsapp:') ? from : `whatsapp:${from}`;
 
     const msg = await client.messages.create({
@@ -30,11 +66,11 @@ const sendWhatsAppMessage = async (to, message) => {
       to: formattedTo,
     });
 
-    console.log(`✅ WhatsApp message sent to ${to} — SID: ${msg.sid}`);
-    return { success: true, sid: msg.sid };
+    console.log(`✅ Twilio WhatsApp message sent to ${twilioTo} — SID: ${msg.sid}`);
+    return { success: true, provider: 'twilio', sid: msg.sid };
   } catch (error) {
-    console.error(`❌ WhatsApp send failed to ${to}:`, error.message);
-    return { success: false, error: error.message };
+    console.error(`❌ Twilio WhatsApp send failed to ${twilioTo}:`, error.message);
+    return { success: false, error: `Twilio: ${error.message}` };
   }
 };
 
@@ -73,4 +109,4 @@ const sendAllClearMessage = async (contact, user) => {
   return sendWhatsAppMessage(contact.phone, message);
 };
 
-module.exports = { sendWhatsAppMessage, sendSOSAlert, sendAllClearMessage };
+module.exports = { sendWhatsAppMessage, sendSOSAlert, sendAllClearMessage, formatPhoneForTwilio };
