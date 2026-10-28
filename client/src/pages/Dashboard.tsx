@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSOS } from '../context/SOSContext';
 import useGeolocation from '../hooks/useGeolocation';
-import useShake from '../hooks/useShake';
+import useShake, { requestMotionPermission } from '../hooks/useShake';
 import SOSButton from '../components/app/SOSButton';
 import api from '../services/api';
 import toast from 'react-hot-toast';
@@ -13,13 +13,22 @@ import type { EmergencyContact, SOSEvent } from '../types';
 export default function Dashboard() {
   const { user } = useAuth();
   const { activeSOS, triggerSOS, resolveSOS, sendLocationUpdate, shakeEnabled, setShakeEnabled } = useSOS();
-  const { position, loading: geoLoading } = useGeolocation();
+  const { position, loading: geoLoading, error: geoError } = useGeolocation();
   const [contacts, setContacts] = useState<EmergencyContact[]>([]);
   const [history, setHistory] = useState<SOSEvent[]>([]);
   const [triggering, setTriggering] = useState(false);
   const locationInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const navigate = useNavigate();
-  const hasUsableLocation = Number.isFinite(position.lat) && Number.isFinite(position.lng);
+
+  const hasUsableLocation = Boolean(
+    position &&
+    Number.isFinite(position.lat) &&
+    Number.isFinite(position.lng) &&
+    position.lat >= -90 &&
+    position.lat <= 90 &&
+    position.lng >= -180 &&
+    position.lng <= 180
+  );
 
   useEffect(() => {
     api.get('/contacts').then((r) => setContacts(r.data.data)).catch(() => {});
@@ -39,7 +48,9 @@ export default function Dashboard() {
 
   const handleTrigger = useCallback(async () => {
     if (triggering) return;
-    if (!hasUsableLocation || geoLoading) return toast.error('Location not available. Please enable GPS.');
+    if (!hasUsableLocation || geoLoading || !position) {
+      return toast.error(geoError || 'Location not available. Please enable GPS.');
+    }
 
     setTriggering(true);
     const loadingToast = toast.loading('Triggering SOS...');
@@ -56,7 +67,7 @@ export default function Dashboard() {
     } finally {
       setTriggering(false);
     }
-  }, [triggering, hasUsableLocation, geoLoading, triggerSOS, position.lat, position.lng, navigate]);
+  }, [triggering, hasUsableLocation, geoLoading, geoError, triggerSOS, position, navigate]);
 
   const handleResolve = useCallback(async () => {
     try {
@@ -67,20 +78,44 @@ export default function Dashboard() {
     }
   }, [activeSOS, resolveSOS]);
 
-  useShake(useCallback(() => {
-    if (!activeSOS && !triggering && hasUsableLocation && !geoLoading) {
-      setTriggering(true);
-      const loadingToast = toast.loading('Triggering shake SOS...');
+  useShake(
+    useCallback(() => {
+      if (!activeSOS && !triggering && hasUsableLocation && !geoLoading && position) {
+        setTriggering(true);
+        const loadingToast = toast.loading('Triggering shake SOS...');
 
-      triggerSOS('shake', position.lat, position.lng).then((data) => {
-        toast.success(`Shake SOS triggered! Alerting ${data.contactsNotified || ''} emergency contacts...`, { id: loadingToast });
-      }).catch((err: any) => {
-        toast.error(err.response?.data?.message || 'Failed to trigger shake SOS', { id: loadingToast });
-      }).finally(() => {
-        setTriggering(false);
-      });
+        triggerSOS('shake', position.lat, position.lng)
+          .then((data) => {
+            toast.success(`Shake SOS triggered! Alerting ${data.contactsNotified || ''} emergency contacts...`, { id: loadingToast });
+          })
+          .catch((err: any) => {
+            toast.error(err.response?.data?.message || 'Failed to trigger shake SOS', { id: loadingToast });
+          })
+          .finally(() => {
+            setTriggering(false);
+          });
+      }
+    }, [activeSOS, triggering, hasUsableLocation, geoLoading, triggerSOS, position]),
+    shakeEnabled
+  );
+
+  const handleToggleShake = async () => {
+    if (!shakeEnabled) {
+      const perm = await requestMotionPermission();
+      if (perm === 'denied') {
+        toast.error('Motion sensor permission denied in browser settings.');
+        return;
+      }
+      if (perm === 'unsupported') {
+        toast.error('Motion sensors are not supported on this device.');
+        return;
+      }
+      setShakeEnabled(true);
+      toast.success('Shake SOS enabled. Shake your device firmly in an emergency.');
+    } else {
+      setShakeEnabled(false);
     }
-  }, [activeSOS, triggering, hasUsableLocation, geoLoading, triggerSOS, position.lat, position.lng]), shakeEnabled);
+  };
 
   const formatTime = (d: string) => new Date(d).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' });
 
@@ -122,10 +157,31 @@ export default function Dashboard() {
             Location
           </div>
           <div className="info-value">
-            {hasUsableLocation ? `${position.lat.toFixed(4)}, ${position.lng.toFixed(4)}` : 'Acquiring...'}
+            {hasUsableLocation && position
+              ? `${position.lat.toFixed(4)}, ${position.lng.toFixed(4)}`
+              : geoLoading
+              ? 'Acquiring...'
+              : geoError
+              ? 'Unavailable'
+              : 'No GPS'}
           </div>
         </div>
-        <div className="glass info-card" onClick={() => setShakeEnabled(!shakeEnabled)} style={{ cursor: 'pointer' }}>
+
+        <div
+          className="glass info-card"
+          role="switch"
+          aria-checked={shakeEnabled}
+          aria-label="Toggle Shake SOS emergency trigger"
+          tabIndex={0}
+          onClick={handleToggleShake}
+          onKeyDown={(e) => {
+            if (e.key === ' ' || e.key === 'Enter') {
+              e.preventDefault();
+              handleToggleShake();
+            }
+          }}
+          style={{ cursor: 'pointer', outlineOffset: '2px' }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
               <div className="info-label">
