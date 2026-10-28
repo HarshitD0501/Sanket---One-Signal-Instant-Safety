@@ -4,9 +4,8 @@ const cors = require('cors');
 const morgan = require('morgan');
 const dotenv = require('dotenv');
 const path = require('path');
-const mongoose = require('mongoose');
 const { Server } = require('socket.io');
-const connectDB = require('./config/db');
+const { connectDB, isDbReady } = require('./config/db');
 const { setupLocationSocket } = require('./socket/locationSocket');
 const { recoverPendingSOSNotifications } = require('./services/sosNotification.service');
 const errorMiddleware = require('./middleware/error.middleware');
@@ -16,6 +15,7 @@ const securityHeaders = require('./middleware/securityHeaders.middleware');
 dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 
 const app = express();
+app.set('trust proxy', Number(process.env.TRUST_PROXY) || 1);
 const server = http.createServer(app);
 
 const io = new Server(server, {
@@ -49,17 +49,18 @@ app.use('/api/map', require('./routes/map.routes'));
 app.use('/api/assistant', require('./routes/assistant.routes'));
 app.use('/api/livekit', require('./routes/livekit.routes'));
 
-app.get('/api/health', (_req, res) => {
+app.get('/api/health', async (_req, res) => {
+  const dbReady = await isDbReady();
   res.json({
     status: 'ok',
     app: 'Sanket - Women Safety SOS',
-    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    database: dbReady ? 'connected' : 'disconnected',
     timestamp: new Date().toISOString(),
   });
 });
 
-app.get('/api/ready', (_req, res) => {
-  const dbReady = mongoose.connection.readyState === 1;
+app.get('/api/ready', async (_req, res) => {
+  const dbReady = await isDbReady();
 
   res.status(dbReady ? 200 : 503).json({
     status: dbReady ? 'ready' : 'not_ready',
@@ -86,7 +87,7 @@ const startServer = async () => {
       console.error('Pending SOS notification recovery failed:', error.message);
     });
   } catch (_error) {
-    console.error('Server startup aborted because MongoDB is not ready.');
+    console.error('Server startup aborted because PostgreSQL is not ready.');
     process.exit(1);
   }
 };

@@ -32,13 +32,15 @@ const getTrackingData = async (req, res, next) => {
       });
     }
 
+    const MAX_TRAIL_POINTS = 500;
     const isActive = sosEvent.status === 'active';
     const points = isActive
-      ? await LocationPoint.findAll({
+      ? (await LocationPoint.findAll({
           where: { sosEventId: sosEvent.id },
-          order: [['timestamp', 'ASC']],
+          order: [['timestamp', 'DESC']],
+          limit: MAX_TRAIL_POINTS,
           attributes: ['lat', 'lng', 'timestamp'],
-        })
+        })).reverse()
       : [];
 
     res.json({
