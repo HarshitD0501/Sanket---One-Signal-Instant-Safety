@@ -18,8 +18,13 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (!AUTH_DETACHED && err.response?.status === 401) {
-      const isAuthRoute = err.config?.url?.includes('/auth/login') || err.config?.url?.includes('/auth/register');
-      if (!isAuthRoute) {
+      const url = err.config?.url || '';
+      const isExcluded =
+        url.includes('/auth/login') ||
+        url.includes('/auth/register') ||
+        url.includes('/assistant') ||
+        url.includes('/livekit');
+      if (!isExcluded) {
         localStorage.removeItem('sanket_token');
         window.location.href = '/login';
       }
