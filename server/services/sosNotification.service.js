@@ -1,4 +1,5 @@
 const SOSEvent = require('../models/SOSEvent');
+const SOSNotification = require('../models/SOSNotification');
 const EmergencyContact = require('../models/EmergencyContact');
 const User = require('../models/User');
 const { sendSOSAlert } = require('./whatsapp.service');
@@ -16,20 +17,17 @@ const truncateError = (error) => {
   return message.slice(0, 300);
 };
 
-const updateNotification = (sosEventId, contactId, update) => {
-  return SOSEvent.updateOne(
-    { _id: sosEventId, 'notifications.contactId': contactId },
-    update
-  );
-};
+const setNotification = (sosEventId, contactId, fields) => (
+  SOSNotification.update(fields, { where: { sosEventId, contactId } })
+);
 
-const shouldAttemptNotification = (notification) => {
-  return (notification?.notificationAttemptCount || 0) < getMaxNotificationAttempts();
-};
+const shouldAttemptNotification = (notification) => (
+  (notification?.notificationAttemptCount || 0) < getMaxNotificationAttempts()
+);
 
 const dispatchContactNotification = async ({ sosEvent, user, contact, trackingUrl }) => {
   const notification = sosEvent.notifications.find((item) => (
-    item.contactId?.toString() === contact._id.toString()
+    item.contactId === contact.id
   ));
 
   if (!notification || !shouldAttemptNotification(notification)) return;
@@ -44,58 +42,73 @@ const dispatchContactNotification = async ({ sosEvent, user, contact, trackingUr
     lastError: null,
   };
 
-  await updateNotification(sosEvent._id, contact._id, {
-    $inc: { 'notifications.$.notificationAttemptCount': 1 },
-    $set: {
-      'notifications.$.notificationLastAttemptAt': attemptStartedAt,
-      'notifications.$.notificationLastError': null,
-    },
+  await SOSNotification.increment('notificationAttemptCount', {
+    by: 1,
+    where: { sosEventId: sosEvent.id, contactId: contact.id },
+  });
+  await setNotification(sosEvent.id, contact.id, {
+    notificationLastAttemptAt: attemptStartedAt,
+    notificationLastError: null,
   });
 
+  const channelTasks = [];
+
   if (contact.whatsappEnabled !== false && !result.whatsappSent) {
-    try {
-      const waResult = await sendSOSAlert(contact, user, sosEvent.location, trackingUrl);
-      result.whatsappSent = Boolean(waResult.success);
-      result.whatsappSentAt = waResult.success ? new Date() : null;
-      if (!waResult.success) result.lastError = waResult.error || waResult.reason || 'WhatsApp send failed';
-    } catch (error) {
-      result.lastError = truncateError(error);
-    }
+    channelTasks.push(
+      sendSOSAlert(contact, user, sosEvent.location, trackingUrl)
+        .then((waResult) => {
+          result.whatsappSent = Boolean(waResult.success);
+          result.whatsappSentAt = waResult.success ? new Date() : null;
+          if (!waResult.success) {
+            result.lastError = waResult.error || waResult.reason || 'WhatsApp send failed';
+          }
+        })
+        .catch((error) => {
+          result.lastError = truncateError(error);
+        })
+    );
   }
 
   if (contact.callEnabled !== false && result.voiceCallStatus !== 'queued') {
-    try {
-      const callResult = await makeEmergencyCall(contact, user, sosEvent.location);
-      result.voiceCallSid = callResult.sid || null;
-      result.voiceCallStatus = callResult.success ? 'queued' : 'failed';
-      result.voiceCalledAt = callResult.success ? new Date() : null;
-      if (!callResult.success) result.lastError = callResult.error || callResult.reason || 'Voice call failed';
-    } catch (error) {
-      result.voiceCallStatus = 'failed';
-      result.lastError = truncateError(error);
-    }
+    channelTasks.push(
+      makeEmergencyCall(contact, user, sosEvent.location)
+        .then((callResult) => {
+          result.voiceCallSid = callResult.sid || null;
+          result.voiceCallStatus = callResult.success ? 'queued' : 'failed';
+          result.voiceCalledAt = callResult.success ? new Date() : null;
+          if (!callResult.success) {
+            result.lastError = callResult.error || callResult.reason || 'Voice call failed';
+          }
+        })
+        .catch((error) => {
+          result.voiceCallStatus = 'failed';
+          result.lastError = truncateError(error);
+        })
+    );
   }
 
-  await updateNotification(sosEvent._id, contact._id, {
-    $set: {
-      'notifications.$.whatsappSent': result.whatsappSent,
-      'notifications.$.whatsappSentAt': result.whatsappSentAt,
-      'notifications.$.voiceCallSid': result.voiceCallSid,
-      'notifications.$.voiceCallStatus': result.voiceCallStatus,
-      'notifications.$.voiceCalledAt': result.voiceCalledAt,
-      'notifications.$.notificationLastError': result.lastError,
-    },
+  await Promise.allSettled(channelTasks);
+
+  await setNotification(sosEvent.id, contact.id, {
+    whatsappSent: result.whatsappSent,
+    whatsappSentAt: result.whatsappSentAt,
+    voiceCallSid: result.voiceCallSid,
+    voiceCallStatus: result.voiceCallStatus,
+    voiceCalledAt: result.voiceCalledAt,
+    notificationLastError: result.lastError,
   });
 };
 
 const dispatchSOSNotifications = async (sosEventId, { trackingUrl } = {}) => {
-  const sosEvent = await SOSEvent.findById(sosEventId);
+  const sosEvent = await SOSEvent.findByPk(sosEventId, {
+    include: [{ model: SOSNotification, as: 'notifications' }],
+  });
   if (!sosEvent || sosEvent.status !== 'active') return;
 
-  const user = await User.findById(sosEvent.userId);
+  const user = await User.findByPk(sosEvent.userId);
   if (!user) return;
 
-  const contacts = await EmergencyContact.find({ userId: sosEvent.userId });
+  const contacts = await EmergencyContact.findAll({ where: { userId: sosEvent.userId } });
   const resolvedTrackingUrl = trackingUrl
     || `${process.env.CLIENT_URL || 'http://localhost:5173'}/track/${sosEvent.trackingId}`;
 
@@ -115,10 +128,10 @@ const dispatchSOSNotifications = async (sosEventId, { trackingUrl } = {}) => {
 };
 
 const recoverPendingSOSNotifications = async () => {
-  const activeEvents = await SOSEvent.find({ status: 'active' }).select('_id trackingId');
+  const activeEvents = await SOSEvent.findAll({ where: { status: 'active' }, attributes: ['id'] });
 
   await Promise.allSettled(
-    activeEvents.map((event) => dispatchSOSNotifications(event._id))
+    activeEvents.map((event) => dispatchSOSNotifications(event.id))
   );
 };
 

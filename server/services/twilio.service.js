@@ -131,22 +131,12 @@ const makeEmergencyCall = async (contact, user, location) => {
   }
 
   try {
-    // Attempt to generate custom message script with Gemini
-    let aiSpokenText = null;
-    try {
-      aiSpokenText = await generateSOSVoiceScript(user.name, location?.address);
-      if (aiSpokenText) {
-        console.log(`✨ Gemini generated voice script successfully: "${aiSpokenText}"`);
-      }
-    } catch (err) {
-      console.warn('⚠️ Gemini script generation failed, falling back to static bilingual script:', err.message);
-    }
-
+    // Generate deterministic bilingual script immediately without blocking on external LLM
     const twiml = generateSOSTwiML(
       user.name,
       user.phone,
       location?.address,
-      aiSpokenText
+      null // deterministic fallback for immediate call initiation
     );
 
     const call = await client.calls.create({

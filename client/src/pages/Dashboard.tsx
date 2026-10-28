@@ -46,7 +46,7 @@ export default function Dashboard() {
 
     try {
       const data = await triggerSOS('tap', position.lat, position.lng);
-      toast.success(`SOS triggered! ${data.contactsNotified} contacts notified.`, { id: loadingToast });
+      toast.success(`SOS triggered! Alerting ${data.contactsNotified || ''} emergency contacts...`, { id: loadingToast });
     } catch (err: any) {
       const message = err.response?.data?.message || 'Failed to trigger SOS';
       toast.error(message, { id: loadingToast });
@@ -61,7 +61,7 @@ export default function Dashboard() {
   const handleResolve = useCallback(async () => {
     try {
       await resolveSOS(activeSOS!.sosId || activeSOS!._id);
-      toast.success('Marked safe. All-clear sent to contacts.');
+      toast.success('Marked safe. Sending all-clear to contacts...');
     } catch {
       toast.error('Failed to resolve SOS');
     }
@@ -73,7 +73,7 @@ export default function Dashboard() {
       const loadingToast = toast.loading('Triggering shake SOS...');
 
       triggerSOS('shake', position.lat, position.lng).then((data) => {
-        toast.success(`Shake SOS triggered! ${data.contactsNotified} contacts notified.`, { id: loadingToast });
+        toast.success(`Shake SOS triggered! Alerting ${data.contactsNotified || ''} emergency contacts...`, { id: loadingToast });
       }).catch((err: any) => {
         toast.error(err.response?.data?.message || 'Failed to trigger shake SOS', { id: loadingToast });
       }).finally(() => {
