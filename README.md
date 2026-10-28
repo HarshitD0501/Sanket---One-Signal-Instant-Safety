@@ -48,7 +48,7 @@ cp .env.example .env
 | Category | Variables | Description |
 |---|---|---|
 | **Server** | `PORT`, `NODE_ENV`, `CLIENT_URL` | Port (`5000`), environment (`development`), and client origin for CORS/links (`http://localhost:5173`). |
-| **Database** | `DATABASE_URL` or `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`, `PG_SSL` | PostgreSQL connection string or discrete parameters. Set `PG_SSL=true` for SSL-required hosted databases. |
+| **Database** | `DATABASE_URL` or `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`, `PG_SSL`, `DB_AUTO_SYNC` | PostgreSQL connection string or discrete parameters. Set `PG_SSL=true` for SSL. Set `DB_AUTO_SYNC=true` only for dev auto-sync. |
 | **JWT** | `JWT_SECRET`, `JWT_EXPIRE` | Secret key for signing bearer tokens and token expiration (e.g., `7d`). |
 | **Twilio Voice** | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` | Twilio account credentials and verified outbound phone number for emergency voice calls. |
 | **WhatsApp Cloud API** | `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_API_VERSION`, `WHATSAPP_SOS_TEMPLATE`, `WHATSAPP_ALLCLEAR_TEMPLATE` | Meta Graph API credentials and approved template names for business-initiated emergency alerts. |
@@ -78,7 +78,18 @@ cd ../client
 npm install
 ```
 
-### 2. Start the Backend API
+### 2. Run Database Migrations
+
+Apply versioned PostgreSQL schema migrations:
+
+```bash
+cd server
+npm run db:migrate
+```
+
+In production (`NODE_ENV=production`), automatic `sequelize.sync()` is disabled by default (`AUDIT-015`). Always run migrations as part of your deployment pipeline before starting the web process. Development environments can optionally enable auto-sync via `DB_AUTO_SYNC=true`.
+
+### 3. Start the Backend API
 
 From the `server` directory:
 
@@ -91,7 +102,7 @@ npm start
 ```
 The server will start on port `5000` (or `PORT` in `.env`), connect to PostgreSQL, and initialize the Socket.IO listener.
 
-### 3. Start the Frontend Client
+### 4. Start the Frontend Client
 
 From the `client` directory:
 
@@ -110,21 +121,35 @@ npm run build
 
 ## 🧪 Safe Diagnostics & Testing
 
-The repository provides non-destructive diagnostics and strictly guarded test scripts:
+The repository provides non-destructive diagnostics, isolated unit test suites, and guarded test scripts:
 
-### 1. Read-Only Database Diagnostic
+### 1. Automated Test Suite (All Stages)
+Runs all stage verification test suites using Node's built-in test runner without making external paid API calls or dropping database tables:
+```bash
+cd server
+npm test
+```
+This executes:
+- `test/stage1-integrity.test.js`: Tracking expiry, atomic SOS flow, and LiveKit room derivation.
+- `test/stage2-delivery.test.js`: WhatsApp Cloud API template enforcement, phone normalization, and bilingual Twilio TwiML emergency calls decoupled from LLM.
+- `test/stage3-reliability.test.js`: Policy-isolated rate limiters, LRU bucket pruning, and generic 5xx error redaction with correlation IDs.
+- `test/stage4-assistant.test.js`: Public landing assistant sign-in gates, input constraints, and graceful LiveKit service unavailability.
+- `test/stage5-frontend-flows.test.js`: Explicit geolocation states (allowing 0° latitude/longitude), shake gesture debounce/cooldown, and SOS active state hydration.
+- `test/stage6-database-ops.test.js`: Versioned migration contracts, partial unique active-SOS index, and production schema sync guards.
+
+### 2. Read-Only Database Diagnostic
 Inspects current database records, masks phone numbers, and verifies tables without altering any data:
 ```bash
 node server/check-db.js
 ```
 
-### 2. Offline WhatsApp Cloud Self-Check
+### 3. Offline WhatsApp Cloud Self-Check
 Runs an offline unit test for phone normalization (E.164 conversion) and ensures unconfigured environments fail safely without throwing:
 ```bash
 node server/test-whatsapp-cloud.js
 ```
 
-### 3. Guarded Database Smoke Test
+### 4. Guarded Database Smoke Test
 > [!WARNING]
 > `server/test-db-smoke.js` runs `sequelize.sync({ force: true })`, which **DROPS ALL TABLES** in the target database.  
 > It has an explicit safety guard requiring `ALLOW_DESTRUCTIVE_DB_TEST=true` and blocks execution in `NODE_ENV=production`.  
@@ -133,7 +158,7 @@ node server/test-whatsapp-cloud.js
 ALLOW_DESTRUCTIVE_DB_TEST=true node server/test-db-smoke.js
 ```
 
-### 4. Legacy SOS Diagnostic
+### 5. Legacy SOS Diagnostic
 `server/test-trigger-sos.js` is an obsolete prototype script from the earlier MongoDB prototype. It has been disabled with an execution guard to prevent accidental notifications or crashes.
 
 ---

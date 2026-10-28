@@ -5,11 +5,15 @@
   "main": "server.js",
   "scripts": {
     "dev": "node --watch server.js",
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test test/*.test.js",
+    "db:migrate": "node scripts/migrate.js"
   },
   "dependencies": {
     "express": "^4.21.0",
-    "mongoose": "^8.8.0",
+    "sequelize": "^6.37.3",
+    "pg": "^8.12.0",
+    "pg-hstore": "^2.3.4",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "bcryptjs": "^2.4.3",
