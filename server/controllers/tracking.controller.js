@@ -1,12 +1,16 @@
 const SOSEvent = require('../models/SOSEvent');
-const LocationHistory = require('../models/LocationHistory');
+const LocationPoint = require('../models/LocationPoint');
 const User = require('../models/User');
 const { parseCoordinates } = require('../utils/locationValidation');
 
-const isTrackingExpired = (sosEvent) => (
-  sosEvent.status !== 'active'
-  && (!sosEvent.trackingExpiresAt || sosEvent.trackingExpiresAt <= new Date())
-);
+const isTrackingExpired = (sosEvent) => {
+  if (!sosEvent) return true;
+  if (!sosEvent.trackingExpiresAt) {
+    const createdAt = new Date(sosEvent.createdAt || Date.now()).getTime();
+    return createdAt + 24 * 60 * 60 * 1000 <= Date.now();
+  }
+  return new Date(sosEvent.trackingExpiresAt).getTime() <= Date.now();
+};
 
 /**
  * GET /api/tracking/:trackingId — PUBLIC (no auth)
@@ -16,38 +20,36 @@ const getTrackingData = async (req, res, next) => {
   try {
     const { trackingId } = req.params;
 
-    const sosEvent = await SOSEvent.findOne({ trackingId })
-      .populate('userId', 'name phone');
-
-    if (!sosEvent) {
-      return res.status(404).json({
-        success: false,
-        message: 'Tracking link not found or expired.',
-      });
-    }
-
-    if (isTrackingExpired(sosEvent)) {
-      return res.status(404).json({
-        success: false,
-        message: 'Tracking link not found or expired.',
-      });
-    }
-
-    // Get location history
-    const locationHistory = await LocationHistory.findOne({
-      sosEventId: sosEvent._id,
+    const sosEvent = await SOSEvent.findOne({
+      where: { trackingId },
+      include: [{ model: User, as: 'user', attributes: ['name', 'phone'] }],
     });
+
+    if (!sosEvent || isTrackingExpired(sosEvent)) {
+      return res.status(404).json({
+        success: false,
+        message: 'Tracking link not found or expired.',
+      });
+    }
+
     const isActive = sosEvent.status === 'active';
+    const points = isActive
+      ? await LocationPoint.findAll({
+          where: { sosEventId: sosEvent.id },
+          order: [['timestamp', 'ASC']],
+          attributes: ['lat', 'lng', 'timestamp'],
+        })
+      : [];
 
     res.json({
       success: true,
       data: {
         trackingId: sosEvent.trackingId,
-        userName: sosEvent.userId?.name || 'Unknown',
+        userName: sosEvent.user?.name || 'Unknown',
         status: sosEvent.status,
         triggerType: sosEvent.triggerType,
         location: sosEvent.location,
-        coordinates: isActive ? locationHistory?.coordinates || [] : [],
+        coordinates: points.map((p) => ({ lat: p.lat, lng: p.lng, timestamp: p.timestamp })),
         triggeredAt: sosEvent.createdAt,
         resolvedAt: sosEvent.resolvedAt,
         trackingExpiresAt: sosEvent.trackingExpiresAt,
@@ -67,43 +69,32 @@ const updateLocation = async (req, res, next) => {
     const coordinates = parseCoordinates(req.body);
 
     if (!coordinates.isValid) {
-      return res.status(400).json({
-        success: false,
-        message: coordinates.message,
-      });
+      return res.status(400).json({ success: false, message: coordinates.message });
     }
 
     const { lat, lng } = coordinates;
 
-    // Find active SOS
     const activeSOS = await SOSEvent.findOne({
-      userId: req.user._id,
-      status: 'active',
+      where: { userId: req.user.id, status: 'active' },
     });
 
     if (!activeSOS) {
-      return res.status(400).json({
-        success: false,
-        message: 'No active SOS found.',
-      });
+      return res.status(400).json({ success: false, message: 'No active SOS found.' });
     }
 
-    // Append to location history
-    await LocationHistory.findOneAndUpdate(
-      { sosEventId: activeSOS._id },
-      {
-        $push: {
-          coordinates: { lat, lng, timestamp: new Date() },
-        },
-      }
-    );
-
-    // Update user's last known location
-    await User.findByIdAndUpdate(req.user._id, {
-      lastKnownLocation: { lat, lng, updatedAt: new Date() },
+    await LocationPoint.create({
+      sosEventId: activeSOS.id,
+      userId: req.user.id,
+      lat,
+      lng,
+      timestamp: new Date(),
     });
 
-    // Emit via Socket.IO
+    await User.update(
+      { lastKnownLocation: { lat, lng, updatedAt: new Date() } },
+      { where: { id: req.user.id } }
+    );
+
     const io = req.app.get('io');
     if (io) {
       io.to(`sos-${activeSOS.trackingId}`).emit('location-updated', {
@@ -119,4 +110,4 @@ const updateLocation = async (req, res, next) => {
   }
 };
 
-module.exports = { getTrackingData, updateLocation };
+module.exports = { getTrackingData, updateLocation, isTrackingExpired };

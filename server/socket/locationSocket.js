@@ -34,7 +34,7 @@ const authenticateSocket = async (socket) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id).select('_id name');
+    const user = await User.findByPk(decoded.id, { attributes: ['id', 'name'] });
     socket.data.user = user || null;
     return socket.data.user;
   } catch (_error) {
@@ -47,10 +47,9 @@ const findOwnedActiveSOS = async (trackingId, userId) => {
   if (!isValidTrackingId(trackingId) || !userId) return null;
 
   return SOSEvent.findOne({
-    trackingId,
-    userId,
-    status: 'active',
-  }).select('_id trackingId userId');
+    where: { trackingId, userId, status: 'active' },
+    attributes: ['id', 'trackingId', 'userId'],
+  });
 };
 
 const emitSocketError = (socket, message) => {
@@ -91,9 +90,20 @@ const setupLocationSocket = (io) => {
           return emitSocketError(socket, 'Invalid tracking link.');
         }
 
-        const sosEvent = await SOSEvent.findOne({ trackingId }).select('_id trackingId');
+        const sosEvent = await SOSEvent.findOne({
+          where: { trackingId },
+          attributes: ['id', 'trackingId', 'status', 'trackingExpiresAt', 'createdAt'],
+        });
         if (!sosEvent) {
           return emitSocketError(socket, 'Tracking link not found.');
+        }
+
+        const isExpired = sosEvent.trackingExpiresAt
+          ? new Date(sosEvent.trackingExpiresAt).getTime() <= Date.now()
+          : new Date(sosEvent.createdAt || Date.now()).getTime() + 24 * 60 * 60 * 1000 <= Date.now();
+
+        if (isExpired) {
+          return emitSocketError(socket, 'Tracking link has expired.');
         }
 
         socket.join(`sos-${trackingId}`);

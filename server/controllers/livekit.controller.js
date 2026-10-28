@@ -14,20 +14,26 @@ const createLiveKitToken = async (req, res, next) => {
       });
     }
 
-    const requestedRoom = typeof req.body.roomName === 'string' ? req.body.roomName.trim() : '';
-    const roomName = requestedRoom.match(/^sanket-assistant-[a-zA-Z0-9-]{6,64}$/)
-      ? requestedRoom
-      : `sanket-assistant-${crypto.randomUUID()}`;
+    const authorizedRoom = `sanket-assistant-${req.user.id}`;
+    const requestedRoom = typeof req.body?.roomName === 'string' ? req.body.roomName.trim() : '';
 
-    const identity = `user-${req.user._id}`;
-    const participantName = typeof req.body.name === 'string' && req.body.name.trim()
+    if (requestedRoom && requestedRoom !== authorizedRoom) {
+      return res.status(403).json({
+        success: false,
+        message: 'Unauthorized: You are not authorized to join the requested room.',
+      });
+    }
+
+    const roomName = authorizedRoom;
+    const identity = `user-${req.user.id}`;
+    const participantName = typeof req.body?.name === 'string' && req.body.name.trim()
       ? req.body.name.trim().slice(0, 40)
-      : req.user.name;
+      : (req.user.name || 'User');
 
     const token = new AccessToken(apiKey, apiSecret, {
       identity,
       name: participantName,
-      ttl: '20m',
+      ttl: '15m',
     });
 
     token.addGrant({
