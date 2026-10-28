@@ -1,6 +1,12 @@
 # 🛡️ Sanket — Women Safety SOS App
 ## Complete Implementation Plan
 
+> [!WARNING]
+> **HISTORICAL / ARCHIVED PLANNING DOCUMENT**  
+> This document represents the initial project planning specification from early development when MongoDB, Mongoose, and Google Maps were envisioned.  
+> **The active production architecture is PostgreSQL + Sequelize 6 and OpenStreetMap (Overpass & Nominatim).**  
+> For current architecture, setup instructions, and verified operational state, please refer to [README.md](file:///C:/Users/harsh/Downloads/Project/Sanket_Pro/Sanket---One-Signal-Instant-Safety/README.md), [CODEBASE_AUDIT_REPORT.md](file:///C:/Users/harsh/Downloads/Project/Sanket_Pro/Sanket---One-Signal-Instant-Safety/CODEBASE_AUDIT_REPORT.md), and [CODEBASE_REMEDIATION_PLAN.md](file:///C:/Users/harsh/Downloads/Project/Sanket_Pro/Sanket---One-Signal-Instant-Safety/CODEBASE_REMEDIATION_PLAN.md).
+
 ---
 
 ## 📌 Problem Statement

@@ -1,3 +1,16 @@
+// OBSOLETE / HISTORICAL SCRIPT:
+// This diagnostic was written for the legacy MongoDB/Mongoose prototype and has the ability
+// to dispatch live emergency alerts via WhatsApp/Twilio.
+// Current architecture uses PostgreSQL managed with Sequelize.
+console.error('\n================================================================');
+console.error('SAFETY BLOCKED: server/test-trigger-sos.js');
+console.error('This is an obsolete MongoDB prototype script and is disabled.');
+console.error('The active database is PostgreSQL managed via Sequelize.');
+console.error('Do not use this script with live emergency contacts or providers.');
+console.error('See CODEBASE_REMEDIATION_PLAN.md for safe testing workflows.');
+console.error('================================================================\n');
+process.exit(1);
+
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const path = require('path');
