@@ -112,4 +112,6 @@ const updateLocation = async (req, res, next) => {
   }
 };
 
-module.exports = { getTrackingData, updateLocation, isTrackingExpired };
+const MAX_TRAIL_POINTS = 500;
+
+module.exports = { getTrackingData, updateLocation, isTrackingExpired, MAX_TRAIL_POINTS };
